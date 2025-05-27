@@ -1,4 +1,4 @@
-#include <boost/stacktrace.hpp>
+#include <boost/stacktrace/stacktrace.hpp>
 #include <crashHandler/implementation/boostStackTrace.hpp>
 #include <csignal>
 #include <functional>
