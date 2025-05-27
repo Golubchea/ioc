@@ -35,5 +35,5 @@ FetchContent_Declare(
 
 if(NOT boost_POPULATED)
   FetchContent_MakeAvailable(Boost)
-  include_directories(${Boost_INCLUDE_DIRS})
+  include_directories(${BOOST_LIBRARY_INCLUDES})
 endif()
