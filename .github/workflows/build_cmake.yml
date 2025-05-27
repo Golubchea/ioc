@@ -59,7 +59,7 @@ jobs:
       run: |
         set(cmake_version $ENV{CMAKE_VERSION})
         set(ninja_version $ENV{NINJA_VERSION})
-        execute_process(COMMAND sudo apt install -y gcovr llvm-18 lcov clang clang++ llvm-18-dev clang-18-tools)
+        execute_process(COMMAND sudo apt install -y gcovr llvm-18 lcov clang-18 clang++-18 llvm-18-dev clang-18-tools)
         message(STATUS "Using host CMake version: ${CMAKE_VERSION}")
 
         if ("${{ runner.os }}" STREQUAL "Windows")
