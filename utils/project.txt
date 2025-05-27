@@ -1,0 +1,4267 @@
+// ==== ФАЙЛ: libraries/EntityComponentSystem/tests/ECSEngineTests.cpp ====
+#include "ECSEngineLib/Components/FuelComponent.hpp"
+#include "ECSEngineLib/Components/VelocityComponent.hpp"
+#include <ECSEngineLib/Components/PositionComponent.hpp>
+#include <ECSEngineLib/World.hpp>
+#include <gtest/gtest.h>
+
+TEST(WorldTest, SetAndGetFuel) {
+  World world;
+  Entity e1 = world.CreateEntity();
+  world.AddComponent<FuelComponent>(e1, 100.0);
+
+  auto fuel = world.GetComponent<FuelComponent>(e1);
+  ASSERT_TRUE(fuel != nullptr);
+
+  EXPECT_EQ(fuel->getFuel(), 100.0);
+  fuel->setFuel(50.0);
+  EXPECT_EQ(fuel->getFuel(), 50.0);
+}
+
+TEST(WorldTest, SetAndGetPosition) {
+  World world;
+  Entity e1 = world.CreateEntity();
+  world.AddComponent<PositionComponent>(e1, std::array<double, 2>{0.0, 0.0});
+
+  auto pos = world.GetComponent<PositionComponent>(e1);
+  ASSERT_TRUE(pos != nullptr);
+
+  EXPECT_EQ(pos->getPosition()[0], 0.0);
+  EXPECT_EQ(pos->getPosition()[1], 0.0);
+
+  pos->setPosition({3.0, 4.0});
+  EXPECT_EQ(pos->getPosition()[0], 3.0);
+  EXPECT_EQ(pos->getPosition()[1], 4.0);
+}
+
+TEST(WorldTest, SetAndGetVelocity) {
+  World world;
+  Entity e1 = world.CreateEntity();
+  world.AddComponent<VelocityComponent>(e1, std::array<double, 2>{0.0, 0.0});
+
+  auto vel = world.GetComponent<VelocityComponent>(e1);
+  ASSERT_TRUE(vel != nullptr);
+
+  EXPECT_EQ(vel->getVelocity()[0], 0.0);
+  EXPECT_EQ(vel->getVelocity()[1], 0.0);
+
+  vel->setVelocity({1.5, 2.5});
+  EXPECT_EQ(vel->getVelocity()[0], 1.5);
+  EXPECT_EQ(vel->getVelocity()[1], 2.5);
+}
+
+TEST(WorldTest, UpdateIsCalled) {
+  World world;
+  // Просто проверяем, что метод вызывается без ошибок
+  EXPECT_NO_THROW(world.Update(0.016f)); // 60 FPS delta time
+}
+struct DummyComponent : public Component {
+  int value;
+
+  template <class Archive>
+  void serialize(Archive &ar, const unsigned int version) {
+    ar &boost::serialization::base_object<Component>(*this);
+    ar & value;
+  }
+};
+
+BOOST_CLASS_EXPORT_GUID(DummyComponent, "DummyComponent")
+
+TEST(WorldTest, HasComponent_UnknownComponent) {
+  World world;
+  Entity e1 = world.CreateEntity();
+
+  // Проверяем, что компонента DummyComponent вообще не существует
+  EXPECT_FALSE(world.HasComponent<DummyComponent>(e1));
+}
+
+TEST(WorldTest, GetComponentReturnsNullptrForUnknownType) {
+  World world;
+  Entity e1 = world.CreateEntity();
+
+  auto dummy = world.GetComponent<DummyComponent>(e1);
+  EXPECT_EQ(dummy, nullptr);
+}
+
+TEST(WorldTest, GetComponentFromNonExistentEntity2) {
+  World world;
+  Entity e1 = world.CreateEntity();
+  world.AddComponent<PositionComponent>(e1, std::array<double, 2>{1.0, 2.0});
+
+  Entity invalid_entity = 999; // Такой сущности нет
+  auto pos = world.GetComponent<PositionComponent>(invalid_entity);
+  EXPECT_EQ(pos, nullptr); // Не должно быть найдено
+}
+TEST(WorldTest, GetComponentThatDoesNotExist2) {
+  World world;
+  Entity e1 = world.CreateEntity();
+  world.AddComponent<PositionComponent>(e1, std::array<double, 2>{1.0, 2.0});
+
+  // У e1 нет VelocityComponent
+  auto vel = world.GetComponent<VelocityComponent>(e1);
+  EXPECT_EQ(vel, nullptr); // Не должно быть найдено
+}
+
+TEST(WorldTest, GetComponentUnknownType2) {
+  World world;
+  Entity e1 = world.CreateEntity();
+
+  auto dummy = world.GetComponent<DummyComponent>(e1);
+  EXPECT_EQ(dummy, nullptr); // Не должно быть найдено
+}
+
+TEST(WorldTest, HasComponentReturnsFalseIfTypeNotRegistered) {
+  World world;
+  Entity e1 = world.CreateEntity();
+
+  // Запрашиваем компонент, которого никогда не добавляли
+  EXPECT_FALSE(world.HasComponent<VelocityComponent>(e1));
+}
+TEST(WorldTest, GetComponent_UnknownComponent) {
+  World world;
+  Entity e1 = world.CreateEntity();
+
+  // Проверяем, что компонента DummyComponent вообще не существует
+  EXPECT_EQ(world.GetComponent<DummyComponent>(e1), nullptr);
+}
+TEST(WorldTest, GetComponentAfterModify) {
+  World world;
+  Entity e1 = world.CreateEntity();
+
+  // Добавляем и изменяем позицию
+  world.AddComponent<PositionComponent>(e1, std::array<double, 2>{1.0, 2.0});
+  auto pos = world.GetComponent<PositionComponent>(e1);
+  ASSERT_TRUE(pos != nullptr);
+  pos->setPosition({3.0, 4.0});
+  EXPECT_EQ(pos->getPosition()[0], 3.0);
+  EXPECT_EQ(pos->getPosition()[1], 4.0);
+
+  // Добавляем и изменяем скорость
+  world.AddComponent<VelocityComponent>(e1, std::array<double, 2>{0.0, 0.0});
+  auto vel = world.GetComponent<VelocityComponent>(e1);
+  ASSERT_TRUE(vel != nullptr);
+  vel->setVelocity({5.0, 6.0});
+  EXPECT_EQ(vel->getVelocity()[0], 5.0);
+  EXPECT_EQ(vel->getVelocity()[1], 6.0);
+}
+
+TEST(WorldTest, CreateEntity) {
+  World world;
+  Entity e1 = world.CreateEntity();
+  Entity e2 = world.CreateEntity();
+  EXPECT_EQ(e1, 1); // Первый ID должен быть 1
+  EXPECT_EQ(e2, 2); // Второй ID должен быть 2
+}
+
+TEST(WorldTest, AddComponent) {
+  World world;
+  Entity e1 = world.CreateEntity();
+  world.AddComponent<PositionComponent>(e1, std::array<double, 2>{1.0, 2.0});
+
+  auto pos = world.GetComponent<PositionComponent>(e1);
+  ASSERT_TRUE(pos != nullptr);
+  EXPECT_EQ(pos->getPosition()[0], 1.0);
+  EXPECT_EQ(pos->getPosition()[1], 2.0);
+}
+
+TEST(WorldTest, DestroyEntity) {
+  World world;
+  Entity e1 = world.CreateEntity();
+  world.AddComponent<PositionComponent>(e1, std::array<double, 2>{1.0, 2.0});
+  world.DestroyEntity(e1);
+
+  // Проверяем, что компонент удален
+  auto pos = world.GetComponent<PositionComponent>(e1);
+  EXPECT_TRUE(pos == nullptr);
+}
+
+TEST(WorldTest, HasComponent) {
+  World world;
+  Entity e1 = world.CreateEntity();
+  world.AddComponent<PositionComponent>(e1, std::array<double, 2>{1.0, 2.0});
+
+  EXPECT_TRUE(world.HasComponent<PositionComponent>(e1));
+  EXPECT_FALSE(world.HasComponent<VelocityComponent>(e1));
+}
+
+TEST(WorldTest, GetComponent) {
+  World world;
+  Entity e1 = world.CreateEntity();
+  world.AddComponent<PositionComponent>(e1, std::array<double, 2>{1.0, 2.0});
+
+  auto pos = world.GetComponent<PositionComponent>(e1);
+  ASSERT_TRUE(pos != nullptr);
+  EXPECT_EQ(pos->getPosition()[0], 1.0);
+  EXPECT_EQ(pos->getPosition()[1], 2.0);
+
+  auto vel = world.GetComponent<VelocityComponent>(e1);
+  EXPECT_TRUE(vel == nullptr);
+}
+
+TEST(WorldTest, MultipleComponents) {
+  World world;
+  Entity e1 = world.CreateEntity();
+  world.AddComponent<PositionComponent>(e1, std::array<double, 2>{1.0, 2.0});
+  world.AddComponent<VelocityComponent>(e1, std::array<double, 2>{3.0, 4.0});
+
+  EXPECT_TRUE(world.HasComponent<PositionComponent>(e1));
+  EXPECT_TRUE(world.HasComponent<VelocityComponent>(e1));
+
+  auto pos = world.GetComponent<PositionComponent>(e1);
+  auto vel = world.GetComponent<VelocityComponent>(e1);
+
+  ASSERT_TRUE(pos != nullptr);
+  ASSERT_TRUE(vel != nullptr);
+
+  EXPECT_EQ(pos->getPosition()[0], 1.0);
+  EXPECT_EQ(pos->getPosition()[1], 2.0);
+  EXPECT_EQ(vel->getVelocity()[0], 3.0);
+  EXPECT_EQ(vel->getVelocity()[1], 4.0);
+}
+
+TEST(ECS, SerializeAndDeserializeWorld) {
+  // Создание мира
+  World world;
+
+  // Создание сущностей
+  Entity e1 = world.CreateEntity();
+  Entity e2 = world.CreateEntity();
+
+  // Добавление компонентов
+  world.AddComponent<PositionComponent>(e1, std::array<double, 2>{1.0, 2.0});
+  world.AddComponent<VelocityComponent>(e1, std::array<double, 2>{3.0, 4.0});
+  world.AddComponent<FuelComponent>(e1, 100.0);
+
+  world.AddComponent<PositionComponent>(e2, std::array<double, 2>{5.0, 6.0});
+  world.AddComponent<VelocityComponent>(e2, std::array<double, 2>{7.0, 8.0});
+
+  // Сохранение мира в файл
+  const std::string filename = "world_test.dat";
+
+  world.Save(filename);
+
+  // Создание нового мира и загрузка данных
+  World newWorld;
+  newWorld.Load(filename);
+
+  // Проверка восстановленных данных
+  auto pos1 = newWorld.GetComponent<PositionComponent>(e1);
+  auto vel1 = newWorld.GetComponent<VelocityComponent>(e1);
+  auto fuel1 = newWorld.GetComponent<FuelComponent>(e1);
+
+  auto pos2 = newWorld.GetComponent<PositionComponent>(e2);
+  auto vel2 = newWorld.GetComponent<VelocityComponent>(e2);
+
+  // Проверка первой сущности
+  ASSERT_TRUE(pos1 != nullptr);
+  EXPECT_EQ(pos1->getPosition()[0], 1.0);
+  EXPECT_EQ(pos1->getPosition()[1], 2.0);
+
+  ASSERT_TRUE(vel1 != nullptr);
+  EXPECT_EQ(vel1->getVelocity()[0], 3.0);
+  EXPECT_EQ(vel1->getVelocity()[1], 4.0);
+
+  ASSERT_TRUE(fuel1 != nullptr);
+  EXPECT_EQ(fuel1->getFuel(), 100.0);
+
+  // Проверка второй сущности
+  ASSERT_TRUE(pos2 != nullptr);
+  EXPECT_EQ(pos2->getPosition()[0], 5.0);
+  EXPECT_EQ(pos2->getPosition()[1], 6.0);
+
+  ASSERT_TRUE(vel2 != nullptr);
+  EXPECT_EQ(vel2->getVelocity()[0], 7.0);
+  EXPECT_EQ(vel2->getVelocity()[1], 8.0);
+}
+
+TEST(WorldTest, GetComponentFromNonExistentEntity) {
+  World world;
+  Entity e1 = world.CreateEntity();
+  world.AddComponent<PositionComponent>(e1, std::array<double, 2>{1.0, 2.0});
+
+  Entity invalid_entity = 999; // Такой сущности нет
+  auto pos = world.GetComponent<PositionComponent>(invalid_entity);
+  EXPECT_TRUE(pos == nullptr); // Не должно быть найдено
+}
+
+TEST(WorldTest, GetComponentThatDoesNotExist) {
+  World world;
+  Entity e1 = world.CreateEntity();
+  world.AddComponent<PositionComponent>(e1, std::array<double, 2>{1.0, 2.0});
+
+  // Запрашиваем компонент, которого нет у этой сущности
+  auto vel = world.GetComponent<VelocityComponent>(e1);
+  EXPECT_TRUE(vel == nullptr); // Не должно быть найдено
+}
+
+TEST(WorldTest, GetComponentAfterDestroyEntity) {
+  World world;
+  Entity e1 = world.CreateEntity();
+  world.AddComponent<PositionComponent>(e1, std::array<double, 2>{1.0, 2.0});
+
+  world.DestroyEntity(e1);
+
+  auto pos = world.GetComponent<PositionComponent>(e1);
+  EXPECT_TRUE(pos == nullptr); // Компонент должен быть удален
+}
+ 
+
+TEST(WorldTest, HasComponentReturnsFalseForNonExistentComponent) {
+  World world;
+  Entity e1 = world.CreateEntity();
+
+  // Убедись, что у сущности нет VelocityComponent
+  EXPECT_FALSE(world.HasComponent<VelocityComponent>(e1));
+
+  // Добавляем PositionComponent
+  world.AddComponent<PositionComponent>(e1, std::array<double, 2>{1.0, 2.0});
+
+  // Убедись, что по-прежнему нет VelocityComponent
+  EXPECT_FALSE(world.HasComponent<VelocityComponent>(e1));
+}
+
+TEST(WorldTest, GetComponentUnknownType) {
+  World world;
+  Entity e1 = world.CreateEntity();
+
+  // Ни один из этих типов не добавлен
+  auto dummy = world.GetComponent<DummyComponent>(e1);
+  EXPECT_TRUE(dummy == nullptr);
+}
+
+
+// ==== ФАЙЛ: libraries/EntityComponentSystem/src/World.cpp ====
+
+#include <ECSEngineLib/World.hpp>
+#include <boost/archive/basic_archive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
+
+#include <fstream>
+
+World::World()
+    : next_entity_id_(1)
+{}
+
+Entity World::CreateEntity() {
+    return next_entity_id_++;
+}
+
+void World::DestroyEntity(Entity entity) {
+    for (auto& [type, map] : components_) {
+        map.erase(entity);
+    }
+}
+
+void World::Save(const std::string &filename) {
+  std::ofstream ofs(filename, std::ios::binary);
+  boost::archive::binary_oarchive oa(ofs);
+  oa << *this;
+}
+
+void World::Load(const std::string &filename) {
+  std::ifstream ifs(filename, std::ios::binary);
+  boost::archive::binary_iarchive ia(ifs);
+  ia >> *this;
+}
+
+
+// ==== ФАЙЛ: libraries/EntityComponentSystem/src/registeredComponents.cpp ====
+#include "ECSEngineLib/Components/FuelComponent.hpp"
+#include "ECSEngineLib/Components/PositionComponent.hpp"
+#include "ECSEngineLib/Components/VelocityComponent.hpp"
+#include <ECSEngineLib/World.hpp>
+#include <boost/serialization/export.hpp>
+
+BOOST_CLASS_EXPORT_GUID(PositionComponent, "PositionComponent")
+BOOST_CLASS_EXPORT_GUID(VelocityComponent, "VelocityComponent")
+BOOST_CLASS_EXPORT_GUID(FuelComponent, "FuelComponent")
+
+
+// ==== ФАЙЛ: libraries/EntityComponentSystem/examples/ECSEngineExample.cpp ====
+#include "ECSEngineLib/Components/FuelComponent.hpp"
+#include "ECSEngineLib/Components/VelocityComponent.hpp"
+#include <ECSEngineLib/Components/PositionComponent.hpp>
+#include <ECSEngineLib/World.hpp>
+#include <boost/serialization/extended_type_info_typeid.hpp>
+#include <iostream>
+
+int main(int, char **) {
+
+  // Создание мира
+  World world;
+
+  // Создание сущностей
+  Entity e1 = world.CreateEntity();
+  Entity e2 = world.CreateEntity();
+
+  // Добавление компонентов
+  world.AddComponent<PositionComponent>(e1, std::array<double, 2>{1.0, 2.0});
+  world.AddComponent<VelocityComponent>(e1, std::array<double, 2>{3.0, 4.0});
+  world.AddComponent<FuelComponent>(e1, 100.0);
+
+  world.AddComponent<PositionComponent>(e2, std::array<double, 2>{5.0, 6.0});
+  world.AddComponent<VelocityComponent>(e2, std::array<double, 2>{7.0, 8.0});
+
+  // Сохранение мира в файл
+  const std::string filename = "world_test.dat";
+  std::cout << "here\n" << std::flush;
+
+  std::cout << "Registered types:\n";
+  world.Save(filename);
+
+  std::cout << "here\n" << std::flush;
+  // Создание нового мира и загрузка данных
+  World newWorld;
+  newWorld.Load(filename);
+
+  // Проверка восстановленных данных
+  auto pos1 = newWorld.GetComponent<PositionComponent>(e1);
+  auto vel1 = newWorld.GetComponent<VelocityComponent>(e1);
+  auto fuel1 = newWorld.GetComponent<FuelComponent>(e1);
+
+  auto pos2 = newWorld.GetComponent<PositionComponent>(e2);
+  auto vel2 = newWorld.GetComponent<VelocityComponent>(e2);
+
+  return 0;
+}
+
+
+// ==== ФАЙЛ: libraries/EntityComponentSystem/include/ECSEngineLib/World.hpp ====
+#pragma once
+
+#include "Component.hpp"
+#include "Entity.hpp"
+#include <boost/core/demangle.hpp>
+#include <boost/serialization/array.hpp>
+#include <boost/serialization/map.hpp>
+#include <boost/serialization/serialization.hpp>
+#include <boost/serialization/shared_ptr.hpp>
+#include <boost/serialization/string.hpp>
+#include <boost/serialization/type_info_implementation.hpp>
+#include <boost/serialization/unordered_map.hpp>
+#include <boost/serialization/utility.hpp>
+#include <memory>
+#include <typeindex>
+#include <unordered_map>
+// Сериализация std::unordered_map
+namespace boost {
+namespace serialization {
+
+template <class Archive>
+void serialize(Archive &ar, std::type_index &t, unsigned int) {
+  std::string name = t.name();
+  ar & name;
+  // Note: точное восстановление type_index невозможно без RTTI или
+  // дополнительной регистрации
+}
+
+} // namespace serialization
+} // namespace boost
+
+class World {
+public:
+    World();
+
+    Entity CreateEntity();
+    void DestroyEntity(Entity entity);
+
+    template <typename T, typename... Args>
+    void AddComponent(Entity entity, Args &&...args) {
+      auto comp = std::make_shared<T>(std::forward<Args>(args)...);
+      components_[typeid(T).name()][entity] = comp;
+    }
+
+    template <typename T> bool HasComponent(Entity entity) const {
+      auto it = components_.find(typeid(T).name());
+      if (it == components_.end())
+        return false;
+      return it->second.find(entity) != it->second.end();
+    }
+
+    template <typename T> std::shared_ptr<T> GetComponent(Entity entity) const {
+      auto it = components_.find(typeid(T).name());
+      if (it == components_.end())
+        return nullptr;
+      auto compIt = it->second.find(entity);
+      if (compIt == it->second.end())
+        return nullptr;
+      return std::static_pointer_cast<T>(compIt->second);
+    }
+
+    void Save(const std::string &filename);
+    void Load(const std::string &filename);
+    void Update(float dt) {};
+
+    friend class boost::serialization::access;
+
+    template <class Archive>
+    void serialize(Archive &ar, const unsigned int version) {
+      ar & next_entity_id_;
+      ar & components_;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const World &world) {
+      std::unordered_map<Entity, std::vector<std::string>> entityComponents;
+
+      for (const auto &[typeName, entityMap] : world.components_) {
+        std::string demangled = boost::core::demangle(typeName.c_str());
+        for (const auto &[entity, _] : entityMap) {
+          entityComponents[entity].push_back(demangled);
+        }
+      }
+
+      if (entityComponents.empty()) {
+        os << "World is empty.\n";
+        return os;
+      }
+
+      os << "World contents:\n";
+      for (const auto &[entity, components] : entityComponents) {
+        os << "Entity " << entity << " has components:\n";
+        for (const auto &typeName : components) {
+          os << "  - " << typeName << "\n";
+        }
+      }
+
+      return os;
+    }
+
+  private:
+    Entity next_entity_id_;
+    std::unordered_map<std::string,
+                       std::unordered_map<Entity, std::shared_ptr<Component>>>
+        components_;
+};
+
+
+// ==== ФАЙЛ: libraries/EntityComponentSystem/include/ECSEngineLib/Entity.hpp ====
+#pragma once
+
+#include <cstdint>
+
+using Entity = uint64_t;
+
+
+// ==== ФАЙЛ: libraries/EntityComponentSystem/include/ECSEngineLib/IComponentFactory.hpp ====
+#pragma once
+#include "Component.hpp"
+#include <memory>
+
+class IComponentFactory {
+public:
+    virtual ~IComponentFactory() = default;
+    virtual std::shared_ptr<Component> Create() const = 0;
+};
+
+
+// ==== ФАЙЛ: libraries/EntityComponentSystem/include/ECSEngineLib/Component.hpp ====
+#pragma once
+#include <boost/serialization/array.hpp>
+#include <boost/serialization/assume_abstract.hpp>
+#include <boost/serialization/export.hpp>
+#include <boost/serialization/map.hpp>
+#include <boost/serialization/serialization.hpp>
+#include <boost/serialization/shared_ptr.hpp>
+#include <boost/serialization/utility.hpp>
+
+class Component {
+
+public:
+  virtual ~Component() = default;
+
+  template <class Archive>
+  void serialize(Archive &ar, const unsigned int version) {
+    // Базовые поля, если есть
+    // ar &boost::serialization::base_object<Component>(*this);
+  }
+};
+
+#include <boost/serialization/export.hpp>
+BOOST_SERIALIZATION_ASSUME_ABSTRACT(Component)
+
+
+// ==== ФАЙЛ: libraries/EntityComponentSystem/include/ECSEngineLib/Components/VelocityComponent.hpp ====
+#pragma once
+
+#include "../Component.hpp"
+#include <array>
+#include <boost/serialization/array.hpp>
+#include <boost/serialization/serialization.hpp>
+class VelocityComponent : public Component {
+
+public:
+  VelocityComponent() = default;
+  explicit VelocityComponent(const std::array<double, 2> &vel)
+      : velocity(vel) {}
+
+  template <class Archive>
+  void serialize(Archive &ar, const unsigned int version) {
+    ar &boost::serialization::base_object<Component>(*this);
+    ar & velocity;
+  }
+
+  std::array<double, 2> getVelocity() const;
+  void setVelocity(const std::array<double, 2> &newVelocity);
+
+private:
+  std::array<double, 2> velocity;
+  friend class boost::serialization::access;
+};
+
+inline std::array<double, 2> VelocityComponent::getVelocity() const {
+  return velocity;
+}
+
+inline void
+VelocityComponent::setVelocity(const std::array<double, 2> &newVelocity) {
+  velocity = newVelocity;
+}
+// #include <boost/serialization/export.hpp>
+// BOOST_CLASS_EXPORT_GUID(VelocityComponent, "VelocityComponent")
+
+
+// ==== ФАЙЛ: libraries/EntityComponentSystem/include/ECSEngineLib/Components/PositionComponent.hpp ====
+#pragma once
+
+#include "../Component.hpp"
+#include <array>
+#include <boost/serialization/array.hpp>
+#include <boost/serialization/serialization.hpp>
+
+struct PositionComponent : public Component {
+public:
+  PositionComponent() = default;
+  explicit PositionComponent(const std::array<double, 2> &pos)
+      : position(pos) {}
+
+  template <class Archive>
+  void serialize(Archive &ar, const unsigned int version) {
+    ar &boost::serialization::base_object<Component>(*this);
+    ar & position;
+  }
+
+  std::array<double, 2> getPosition() const;
+  void setPosition(const std::array<double, 2> &newPosition);
+
+private:
+  friend class boost::serialization::access;
+  std::array<double, 2> position;
+};
+
+inline std::array<double, 2> PositionComponent::getPosition() const {
+  return position;
+}
+
+inline void
+PositionComponent::setPosition(const std::array<double, 2> &newPosition) {
+  position = newPosition;
+}
+// #include <boost/serialization/export.hpp>
+// BOOST_CLASS_EXPORT_GUID(PositionComponent, "PositionComponent")
+
+
+// ==== ФАЙЛ: libraries/EntityComponentSystem/include/ECSEngineLib/Components/FuelComponent.hpp ====
+#pragma once
+
+#include "../Component.hpp"
+#include <boost/serialization/access.hpp>
+#include <boost/serialization/export.hpp>
+
+struct FuelComponent : public Component {
+
+public:
+  FuelComponent() = default;
+  explicit FuelComponent(double f) : fuel(f) {}
+
+  template <class Archive>
+  void serialize(Archive &ar, const unsigned int version) {
+    ar &boost::serialization::base_object<Component>(*this);
+    ar & fuel;
+  }
+
+  double getFuel() const;
+  void setFuel(double newFuel);
+
+private:
+  friend class boost::serialization::access;
+  double fuel = 0.0;
+};
+
+inline double FuelComponent::getFuel() const { return fuel; }
+inline void FuelComponent::setFuel(double newFuel) { fuel = newFuel; }
+
+// BOOST_CLASS_EXPORT_GUID(FuelComponent, "FuelComponent")
+
+
+// ==== ФАЙЛ: libraries/Network/tests/NetworkTests.cpp ====
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+#include <network/NetworkFactory.hpp>
+#include <utils/conversionUtils.hpp>
+
+#include <chrono>
+#include <functional>
+#include <gtest/gtest.h>
+#include <memory>
+#include <network/INetworkServer.hpp>
+#include <network/ISession.hpp>
+#include <thread>
+#include <vector>
+
+class MockNetworkServer : public network::INetworkServer {
+public:
+  void start() override {};
+  void stop() override {};
+
+  void broadcast(const std::vector<uint8_t> &) override {};
+  void setOnClientConnect(
+      std::function<void(ISession::Ptr session)> handler) override {};
+};
+
+class MockSession : public ISession {
+  void send(const std::vector<uint8_t> &data) override {};
+  void close() override {};
+  void setOnMessage(
+      std::function<void(const std::vector<uint8_t> &)> handler) override {};
+  void setOnConnect(std::function<void()> handler) override {};
+  void setOnDisconnect(std::function<void()> handler) override {};
+};
+
+// === Тест: клиент и сервер обмениваются сообщениями ===
+TEST(NetworkLibTest, ClientCanConnectToServer) {
+
+  const int port = 9877;
+
+  auto server = network::NetworkFactory::createServer(port);
+
+  bool clientConnected = false;
+  server->setOnClientConnect([&](ISession::Ptr session) {
+    clientConnected = true;
+    std::this_thread::sleep_for(
+        std::chrono::milliseconds(1)); // даем время обработать
+    session->close();
+  });
+
+  std::thread serverThread([&server]() { server->start(); });
+
+  auto client = network::NetworkFactory::createClient();
+  client->connect("127.0.0.1", std::to_string(port));
+  client->start();
+
+  EXPECT_TRUE(clientConnected);
+
+  client->stop();
+  server->stop();
+
+  if (serverThread.joinable())
+    serverThread.join();
+}
+
+TEST(NetworkLibTest, ClientReceivesMessageFromServer) {
+  const int port = 9878;
+
+  auto server = network::NetworkFactory::createServer(port);
+
+  bool clientConnected = false;
+  bool messageReceived = false;
+
+  server->setOnClientConnect([&](ISession::Ptr session) {
+    clientConnected = true;
+    session->setOnMessage([&messageReceived](const std::vector<uint8_t> &data) {
+      std::string msg = ConversionUtils::bytes2str(data);
+      EXPECT_EQ(msg, "hello");
+      messageReceived = true;
+    });
+    session->send(ConversionUtils::str2bytes("serverToClient"));
+  });
+
+  std::thread serverThread([&server]() { server->start(); });
+
+  auto client = network::NetworkFactory::createClient();
+  client->connect("127.0.0.1", std::to_string(port));
+
+  client->setOnMessage([&](const std::vector<uint8_t> &data) {
+    std::string msg = ConversionUtils::bytes2str(data);
+    EXPECT_EQ(msg, "serverToClient");
+    client->disconnect();
+  });
+
+  client->setOnConnect(
+      [&]() { client->send(ConversionUtils::str2bytes("hello")); });
+
+  client->start();
+
+  std::this_thread::sleep_for(
+      std::chrono::milliseconds(100)); // ждем выполнения
+
+  EXPECT_TRUE(clientConnected);
+  EXPECT_TRUE(messageReceived);
+
+  server->stop();
+  if (serverThread.joinable())
+    serverThread.join();
+}
+
+TEST(INetworkServerTest, Clients_ReturnsCorrectList) {
+  MockNetworkServer server;
+
+  // Добавляем mock-сессии
+  auto session1 = std::make_shared<MockSession>();
+  auto session2 = std::make_shared<MockSession>();
+
+  server.clients_.push_back(session1);
+  server.clients_.push_back(session2);
+
+  auto result = server.clients();
+
+  ASSERT_EQ(result.size(), 2);
+  EXPECT_EQ(result[0], session1);
+  EXPECT_EQ(result[1], session2);
+}
+
+// ==== ТЕСТ 4: Сервер может отправить эхо-сообщение клиенту ====
+// TEST(NetworkLibTest, ServerEchoesMessageToClient) {
+//   const int port = 9879;
+
+//   auto server = network::NetworkFactory::createServer(port);
+
+//   bool clientConnected = false;
+//   bool echoReceived = false;
+
+//   server->setOnClientConnect([&](ISession::Ptr session) {
+//     clientConnected = true;
+//     session->setOnMessage([=](const std::vector<uint8_t> &data) {
+//       session->send(data); // Эхо
+//     });
+//   });
+
+//   std::thread serverThread([&server]() { server->start(); });
+
+//   auto client = network::NetworkFactory::createClient();
+//   client->connect("127.0.0.1", std::to_string(port));
+
+//   client->setOnMessage([&](const std::vector<uint8_t> &data) {
+//     std::string msg = ConversionUtils::bytes2str(data);
+//     EXPECT_EQ(msg, "ping");
+//     echoReceived = true;
+//     client->disconnect();
+//   });
+
+//   client->setOnConnect(
+//       [&]() { client->send(ConversionUtils::str2bytes("ping")); });
+
+//   client->start();
+
+//   std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+
+//   EXPECT_TRUE(clientConnected);
+//   EXPECT_TRUE(echoReceived);
+
+//   server->stop();
+//   if (serverThread.joinable())
+//     serverThread.join();
+// }
+
+// ==== ТЕСТ 5: Клиент корректно отключается ====
+// TEST(NetworkLibTest, ClientDisconnectsGracefully) {
+//   const int port = 9880;
+
+//   auto server = network::NetworkFactory::createServer(port);
+
+//   bool clientConnected = false;
+//   bool clientDisconnected = false;
+
+//   server->setOnClientConnect([&](ISession::Ptr session) {
+//     clientConnected = true;
+//     session->setOnDisconnect(
+//         [&clientDisconnected]() { clientDisconnected = true; });
+//   });
+
+//   std::thread serverThread([&server]() { server->start(); });
+
+//   auto client = network::NetworkFactory::createClient();
+//   client->connect("127.0.0.1", std::to_string(port));
+//   client->start();
+
+//   std::this_thread::sleep_for(std::chrono::milliseconds(500));
+//   client->disconnect();
+
+//   std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+//   EXPECT_TRUE(clientConnected);
+//   EXPECT_TRUE(clientDisconnected);
+
+//   server->stop();
+//   if (serverThread.joinable())
+//     serverThread.join();
+// }
+
+// ==== ТЕСТ 6: Сервер шлет сообщение всем клиентам ====
+// TEST(NetworkLibTest, ServerBroadcastsToAllClients) {
+//   const int port = 9881;
+
+//   auto server = network::NetworkFactory::createServer(port);
+
+//   std::atomic<int> clientsConnected{0};
+//   std::atomic<int> messagesReceived{0};
+
+//   server->setOnClientConnect([&](ISession::Ptr session) {
+//     session->setOnMessage(
+//         [&messagesReceived](const std::vector<uint8_t> &data) {
+//           std::string msg = ConversionUtils::bytes2str(data);
+//           EXPECT_EQ(msg, "broadcast_msg");
+//           messagesReceived++;
+//         });
+//     clientsConnected++;
+//   });
+
+//   std::thread serverThread([&server]() { server->start(); });
+
+//   auto client1 = network::NetworkFactory::createClient();
+//   auto client2 = network::NetworkFactory::createClient();
+
+//   client1->connect("127.0.0.1", std::to_string(port));
+//   client2->connect("127.0.0.1", std::to_string(port));
+
+//   client1->start();
+//   client2->start();
+
+//   std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+//   server->broadcast(ConversionUtils::str2bytes("broadcast_msg"));
+
+//   std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+//   EXPECT_EQ(clientsConnected.load(), 2);
+//   EXPECT_EQ(messagesReceived.load(), 2);
+
+//   client1->disconnect();
+//   client2->disconnect();
+//   server->stop();
+//   if (serverThread.joinable())
+//     serverThread.join();
+// }
+
+
+// ==== ФАЙЛ: libraries/Network/src/asio/AsioNetworkClient.cpp ====
+#include "network/implementations/asio/AsioNetworkClient.hpp"
+#include <arpa/inet.h> // Для ntohl и htonl
+#include <iostream>
+
+namespace network {
+
+AsioNetworkClient::AsioNetworkClient() : resolver_(io_), socket_(io_) {}
+
+void AsioNetworkClient::start() { io_.run(); }
+
+void AsioNetworkClient::stop() {
+  disconnect();
+  io_.stop();
+}
+
+void AsioNetworkClient::connect(const std::string &host,
+                                const std::string &port) {
+  if (!is_active_) {
+    std::cerr << "Client is not active. Cannot connect.\n";
+    return;
+  }
+  boost::asio::post(socket_.get_executor(), [this, host, port,
+                                             self = shared_from_this()]() {
+    if (!is_active_)
+      return;
+    resolver_.async_resolve(
+        host, port,
+        [this, self](const boost::system::error_code &resolve_ec,
+                     boost::asio::ip::tcp::resolver::results_type endpoints) {
+          if (!self->is_active_)
+            return;
+          if (resolve_ec) {
+            std::cerr << "Resolve error: " << resolve_ec.message() << "\n";
+            if (on_disconnect_handler_) {
+              on_disconnect_handler_();
+            }
+            return;
+          }
+          boost::asio::async_connect(
+              self->socket_, endpoints,
+              [this, self](const boost::system::error_code &connect_ec,
+                           const boost::asio::ip::tcp::endpoint &) {
+                if (!self->is_active_)
+                  return;
+                if (!connect_ec) {
+                  if (on_connect_handler_) {
+                    on_connect_handler_();
+                  }
+                  startReading(); // начинаем чтение только после успешного
+                                  // подключения
+                } else {
+                  std::cerr << "Connect error: " << connect_ec.message()
+                            << "\n";
+                  if (on_disconnect_handler_) {
+                    on_disconnect_handler_();
+                  }
+                }
+              });
+        });
+  });
+}
+
+void AsioNetworkClient::send(const std::vector<uint8_t> &data) {
+  uint32_t size = data.size();
+  uint32_t network_size =
+      htonl(size); // Преобразуем размер в сетевой порядок байтов
+  std::vector<uint8_t> buffer;
+  buffer.reserve(sizeof(network_size) + data.size());
+
+  // Добавляем размер в начало сообщения
+  buffer.insert(buffer.end(), reinterpret_cast<uint8_t *>(&network_size),
+                reinterpret_cast<uint8_t *>(&network_size) +
+                    sizeof(network_size));
+  // Добавляем само сообщение
+  buffer.insert(buffer.end(), data.begin(), data.end());
+
+  boost::asio::post(io_, [this, buffer = std::move(buffer)]() mutable {
+    if (!is_active_ || !socket_.is_open())
+      return;
+    bool should_start = false;
+    {
+      std::lock_guard<std::mutex> lock(write_queue_mutex_);
+      should_start = write_queue_.empty() && !is_writing_;
+      write_queue_.push_back(buffer);
+    }
+    if (should_start) {
+      doWrite();
+    }
+  });
+}
+
+void AsioNetworkClient::doWrite() {
+  std::vector<uint8_t> current_data;
+  {
+    std::lock_guard<std::mutex> lock(write_queue_mutex_);
+    if (write_queue_.empty()) {
+      is_writing_ = false;
+      return;
+    }
+    current_data = write_queue_.front();
+  }
+  boost::asio::async_write(
+      socket_, boost::asio::buffer(current_data),
+      [this, self = shared_from_this()](const boost::system::error_code &ec,
+                                        size_t /*length*/) {
+        if (!self->is_active_)
+          return;
+        if (!ec) {
+          {
+            std::lock_guard<std::mutex> lock(self->write_queue_mutex_);
+            self->write_queue_.pop_front();
+            self->is_writing_ = false;
+          }
+          self->doWrite(); // продолжаем отправку
+        } else {
+          std::cerr << "Write error: " << ec.message() << std::endl;
+          self->socket_.close();
+        }
+      });
+}
+
+void AsioNetworkClient::setOnConnect(std::function<void()> handler) {
+  on_connect_handler_ = handler;
+}
+
+void AsioNetworkClient::setOnDisconnect(std::function<void()> handler) {
+  on_disconnect_handler_ = handler;
+}
+
+void AsioNetworkClient::setOnMessage(
+    std::function<void(const std::vector<uint8_t> &)> handler) {
+  on_message_handler_ = handler;
+}
+
+void AsioNetworkClient::startReading() {
+  if (!is_active_)
+    return;
+
+  // Сначала читаем размер сообщения (4 байта)
+  boost::asio::async_read(
+      socket_, boost::asio::buffer(&message_size_, sizeof(message_size_)),
+      [this, self = shared_from_this()](const boost::system::error_code &ec,
+                                        size_t /*length*/) {
+        if (ec || !self->is_active_) {
+          return handleReadError(ec);
+        }
+
+        // Преобразуем размер из сетевого формата в локальный
+        message_size_ = ntohl(message_size_);
+
+        // Теперь читаем само сообщение согласно полученному размеру
+        message_buffer_.resize(message_size_);
+        boost::asio::async_read(
+            socket_, boost::asio::buffer(message_buffer_),
+            [this, self](const boost::system::error_code &ec,
+                         size_t /*length*/) {
+              if (ec || !self->is_active_) {
+                return handleReadError(ec);
+              }
+
+              if (on_message_handler_) {
+                on_message_handler_(message_buffer_);
+              }
+              startReading(); // продолжаем чтение
+            });
+      });
+}
+
+void AsioNetworkClient::handleReadError(const boost::system::error_code &ec) {
+  if (ec == boost::asio::error::eof || !socket_.is_open()) {
+    std::cerr << "Disconnected gracefully\n";
+  } else if (ec) {
+    std::cerr << "Read error: " << ec.message() << "\n";
+  }
+  is_active_ = false;
+  if (on_disconnect_handler_) {
+    on_disconnect_handler_();
+  }
+}
+
+void AsioNetworkClient::disconnect() {
+  boost::asio::post(io_, [this]() {
+    if (socket_.is_open()) {
+      socket_.close();
+    }
+  });
+}
+
+} // namespace network
+
+
+// ==== ФАЙЛ: libraries/Network/src/asio/AsioNetworkServer.cpp ====
+#include "network/implementations/asio/AsioNetworkServer.hpp"
+#include "network/implementations/asio/AsioSession.hpp"
+#include <iostream>
+
+namespace network {
+
+AsioNetworkServer::AsioNetworkServer(unsigned short port)
+    : acceptor_(io_, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(),
+                                                    port)) {
+  doAccept();
+}
+
+void AsioNetworkServer::start() { io_.run(); }
+
+void AsioNetworkServer::stop() { io_.stop(); }
+
+void AsioNetworkServer::broadcast(const std::vector<uint8_t> &data) {
+  for (auto &client : clients_) {
+    client->send(data);
+  }
+}
+
+void AsioNetworkServer::setOnClientConnect(
+    std::function<void(ISession::Ptr session)> handler) {
+  on_client_connect_ = handler;
+}
+
+void AsioNetworkServer::doAccept() {
+  acceptor_.async_accept([this](boost::system::error_code ec,
+                                boost::asio::ip::tcp::socket socket) {
+    if (!ec) {
+      auto session = std::make_shared<AsioSession>(std::move(socket));
+      session->setOnDisconnect([this, session]() {
+        session->close();
+        std::erase_if(clients_, [&](const ISession::Ptr &client) {
+          return client.get() == session.get();
+        });
+      });
+      if (on_client_connect_) {
+        on_client_connect_(session);
+      }
+      clients_.push_back(session);
+      session->startReading();
+    }
+    doAccept();
+  });
+}
+
+} // namespace network
+
+
+// ==== ФАЙЛ: libraries/Network/src/asio/NetworkFactory.cpp ====
+#include "network/NetworkFactory.hpp"
+#include "network/implementations/asio/AsioNetworkClient.hpp"
+#include "network/implementations/asio/AsioNetworkServer.hpp"
+
+namespace network {
+
+std::shared_ptr<INetworkClient> NetworkFactory::createClient() {
+  return std::make_shared<AsioNetworkClient>();
+}
+
+std::shared_ptr<INetworkServer>
+NetworkFactory::createServer(unsigned short port) {
+  return std::make_shared<AsioNetworkServer>(port);
+}
+
+} // namespace network
+
+
+// ==== ФАЙЛ: libraries/Network/src/utils/conversionUtils.cpp ====
+#include <utils/conversionUtils.hpp>
+
+std::vector<std::uint8_t> ConversionUtils::str2bytes(std::string str) {
+  std::vector<std::uint8_t> vector(str.begin(), str.end());
+
+  return vector;
+}
+
+std::string ConversionUtils::bytes2str(std::vector<std::uint8_t> str) {
+  std::string str1(str.begin(), str.end());
+  return str1;
+}
+
+
+// ==== ФАЙЛ: libraries/Network/src/crashHandler/stacktrace.cpp ====
+
+#include <crashHandler/implementation/boostStackTrace.hpp>
+#include <crashHandler/stacktrace.hpp>
+
+std::shared_ptr<IStackTrace> StackTraceFactory::createStackTrace() {
+  return std::make_shared<BoostStackTrace>();
+}
+
+
+// ==== ФАЙЛ: libraries/Network/src/crashHandler/implementation/boostStacktrace.cpp ====
+#include <boost/stacktrace.hpp>
+#include <crashHandler/implementation/boostStackTrace.hpp>
+#include <csignal>
+#include <functional>
+#include <iostream>
+
+void signal_handler(int signal) {
+  std::cerr << "Signal caught (" << signal << "): dumping stack trace\n";
+  std::cerr << boost::stacktrace::stacktrace() << std::endl;
+  std::_Exit(signal); // или exit(signal)
+}
+
+void BoostStackTrace::init(std::function<void()> func) {
+  std::signal(SIGABRT, signal_handler);
+  std::signal(SIGSEGV, signal_handler);
+  std::signal(SIGILL, signal_handler);
+
+  try {
+    func();
+  }
+
+  catch (const std::exception &e) {
+    // Выводим сообщение об ошибке
+    std::cerr << "Exception caught: " << e.what() << std::endl;
+
+    // Выводим трассировку стека
+    std::cerr << "Stack trace:\n"
+              << boost::stacktrace::stacktrace() << std::endl;
+  }
+}
+
+
+// ==== ФАЙЛ: libraries/Network/examples/client.cpp ====
+
+#include <crashHandler/stacktrace.hpp>
+#include <iostream>
+#include <network/NetworkFactory.hpp>
+#include <utils/conversionUtils.hpp>
+#include <vector>
+
+namespace {
+constexpr char request[] = "clientToServer";
+constexpr char address[] = "127.0.0.1";
+int port = 12345;
+
+} // namespace
+
+int main(int argc, char *argv[]) {
+
+  auto crashHandler = StackTraceFactory::createStackTrace();
+
+  crashHandler->init([]() {
+    auto client = network::NetworkFactory::createClient();
+    client->setOnConnect([&]() {
+      std::cout << "Connected to server\n";
+      for (auto i = 0u; i < 100; ++i) {
+        client->send(ConversionUtils::str2bytes(request));
+      }
+    });
+
+    client->setOnMessage([](const std::vector<uint8_t> &data) {
+      std::string msg(data.begin(), data.end());
+      std::cout << "Client received: " << msg << "\n";
+    });
+    client->connect(address, std::to_string(port));
+    client->start();
+  });
+
+  return 0;
+}
+
+
+// ==== ФАЙЛ: libraries/Network/examples/server.cpp ====
+
+#include <crashHandler/stacktrace.hpp>
+#include <network/NetworkFactory.hpp>
+#include <utils/conversionUtils.hpp>
+
+#include <csignal>
+#include <iostream>
+#include <thread>
+#include <vector>
+
+namespace {
+constexpr char responce[] = "serverToClient";
+int port = 12345;
+} // namespace
+
+int main(int argc, char *argv[]) {
+  auto crashHandler = StackTraceFactory::createStackTrace();
+
+  crashHandler->init([]() {
+    auto server = network::NetworkFactory::createServer(port);
+    server->setOnClientConnect([](ISession::Ptr session) {
+      std::cout << "New client connected\n";
+
+      session->setOnMessage([=](const std::vector<uint8_t> &data) {
+        std::cout << "Received from client " << ConversionUtils::bytes2str(data)
+                  << "\n"
+                  << std::flush;
+        session->send(ConversionUtils::str2bytes(responce)); // эхо
+      });
+    });
+    server->start();
+  });
+
+  return 0;
+}
+
+
+// ==== ФАЙЛ: libraries/Network/include/utils/conversionUtils.hpp ====
+#pragma once
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
+namespace ConversionUtils {
+std::vector<std::uint8_t> str2bytes(std::string str);
+
+std::string bytes2str(std::vector<std::uint8_t> str);
+} // namespace ConversionUtils
+
+
+// ==== ФАЙЛ: libraries/Network/include/crashHandler/stacktrace.hpp ====
+#pragma once
+#include <functional>
+#include <memory>
+
+class IStackTrace {
+public:
+  virtual void init(std::function<void()> func) = 0;
+};
+
+class StackTraceFactory {
+public:
+  static std::shared_ptr<IStackTrace> createStackTrace();
+};
+
+
+// ==== ФАЙЛ: libraries/Network/include/crashHandler/implementation/boostStackTrace.hpp ====
+#pragma once
+
+#include <crashHandler/stacktrace.hpp>
+
+class BoostStackTrace : public IStackTrace {
+public:
+  void init(std::function<void()> func) override;
+};
+
+
+// ==== ФАЙЛ: libraries/Network/include/network/INetworkServer.hpp ====
+#pragma once
+#include <network/ISession.hpp>
+
+namespace network {
+class INetworkServer {
+public:
+  using Ptr = std::shared_ptr<INetworkServer>;
+
+  std::vector<ISession::Ptr> clients_;
+
+  virtual ~INetworkServer() = default;
+
+  virtual void start() = 0;
+  virtual void stop() = 0;
+  virtual void broadcast(const std::vector<uint8_t> &data) = 0;
+  virtual void
+  setOnClientConnect(std::function<void(ISession::Ptr session)> handler) = 0;
+
+  inline std::vector<ISession::Ptr> clients() const { return clients_; }
+};
+} // namespace network
+
+
+// ==== ФАЙЛ: libraries/Network/include/network/ISession.hpp ====
+#pragma once
+#include <functional>
+#include <memory>
+#include <vector>
+
+class ISession {
+public:
+    using Ptr = std::shared_ptr<ISession>;
+
+    virtual ~ISession() = default;
+
+    virtual void send(const std::vector<uint8_t>& data) = 0;
+    virtual void close() = 0;
+
+    virtual void setOnMessage(std::function<void(const std::vector<uint8_t>&)> handler) = 0;
+    virtual void setOnConnect(std::function<void()> handler) = 0;
+    virtual void setOnDisconnect(std::function<void()> handler) = 0;
+};
+
+
+// ==== ФАЙЛ: libraries/Network/include/network/NetworkFactory.hpp ====
+#pragma once
+#include <network/INetworkClient.hpp>
+#include <network/INetworkServer.hpp>
+
+namespace network {
+
+class NetworkFactory {
+public:
+  static std::shared_ptr<INetworkClient> createClient();
+  static std::shared_ptr<INetworkServer> createServer(unsigned short port);
+};
+
+} // namespace network
+
+
+// ==== ФАЙЛ: libraries/Network/include/network/INetworkClient.hpp ====
+#pragma once
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <string>
+#include <vector>
+
+class INetworkClient {
+public:
+  using Ptr = std::shared_ptr<INetworkClient>;
+  virtual ~INetworkClient() = default;
+
+  virtual void connect(const std::string &host, const std::string &port) = 0;
+  virtual void disconnect() = 0;
+  virtual void send(const std::vector<uint8_t> &data) = 0;
+  virtual void start() = 0;
+  virtual void stop() = 0;
+  virtual void setOnConnect(std::function<void()> handler) = 0;
+  virtual void setOnDisconnect(std::function<void()> handler) = 0;
+  virtual void
+  setOnMessage(std::function<void(const std::vector<uint8_t> &)> handler) = 0;
+};
+
+
+// ==== ФАЙЛ: libraries/Network/include/network/implementations/asio/AsioNetworkServer.hpp ====
+#include <boost/asio.hpp>
+#include <network/INetworkServer.hpp>
+#include <network/implementations/asio/AsioSession.hpp>
+#include <vector>
+
+namespace network {
+
+class AsioNetworkServer : public INetworkServer {
+public:
+  explicit AsioNetworkServer(unsigned short port);
+  void start() override;
+  void stop() override;
+  void broadcast(const std::vector<uint8_t> &data) override;
+  void setOnClientConnect(std::function<void(ISession::Ptr session)>) override;
+
+private:
+  void doAccept();
+
+  boost::asio::io_context io_;
+  boost::asio::ip::tcp::acceptor acceptor_;
+  std::vector<ISession::Ptr> clients_;
+  std::function<void(ISession::Ptr session)> on_client_connect_;
+};
+
+} // namespace network
+
+
+// ==== ФАЙЛ: libraries/Network/include/network/implementations/asio/AsioSession.hpp ====
+#pragma once
+#include "network/ISession.hpp"
+#include <boost/asio.hpp>
+#include <boost/asio/streambuf.hpp>
+#include <deque>
+#include <iostream>
+#include <memory>
+
+namespace network {
+
+class AsioSession : public ISession,
+                    public std::enable_shared_from_this<AsioSession> {
+public:
+  boost::asio::ip::tcp::socket socket_;
+  boost::asio::streambuf read_buffer_;
+  std::function<void(const std::vector<uint8_t> &)> on_message_handler_;
+  std::function<void()> on_connect_handler_;
+  std::function<void()> on_disconnect_handler_;
+  std::deque<std::vector<uint8_t>> write_queue_;
+  bool is_writing_ = false;
+  bool is_active_ = true;
+
+  explicit AsioSession(boost::asio::ip::tcp::socket socket)
+      : socket_(std::move(socket)) {}
+
+  void send(const std::vector<uint8_t> &data) override {
+    uint32_t size = data.size();
+    uint32_t network_size =
+        htonl(size); // Преобразуем размер в сетевой порядок байтов
+    std::vector<uint8_t> buffer;
+    buffer.reserve(sizeof(network_size) + data.size());
+
+    // Добавляем размер в начало сообщения
+    buffer.insert(buffer.end(), reinterpret_cast<uint8_t *>(&network_size),
+                  reinterpret_cast<uint8_t *>(&network_size) +
+                      sizeof(network_size));
+    // Добавляем само сообщение
+    buffer.insert(buffer.end(), data.begin(), data.end());
+
+    boost::asio::post(
+        socket_.get_executor(), [this, buffer = std::move(buffer)]() mutable {
+          if (!is_active_ || !socket_.is_open())
+            return;
+          bool should_start = write_queue_.empty() && !is_writing_;
+          write_queue_.push_back(std::move(buffer));
+          if (should_start) {
+            doWrite();
+          }
+        });
+  }
+
+  // void send(const std::vector<uint8_t> &data) override {
+  //   boost::asio::post(socket_.get_executor(), [this, self =
+  //   shared_from_this(),
+  //                                              data = std::move(data)]() {
+  //     if (!is_active_ || !socket_.is_open())
+  //       return;
+
+  //     bool should_start = write_queue_.empty() && !is_writing_;
+  //     write_queue_.push_back(std::move(data));
+
+  //     if (should_start) {
+  //       doWrite();
+  //     }
+  //   });
+  // }
+
+  // void close() override {
+  //   boost::asio::post(socket_.get_executor(),
+  //                     [this, self = shared_from_this()]() {
+  //                       if (!is_active_)
+  //                         return;
+  //                       is_active_ = false;
+  //                       socket_.close();
+  //                     });
+  // }
+
+  // void close() override {
+  //   boost::asio::post(socket_.get_executor(),
+  //                     [this, self = shared_from_this()]() {
+  //                       if (!is_active_)
+  //                         return;
+  //                       is_active_ = false;
+  //                       if (on_disconnect_handler_) {
+  //                         on_disconnect_handler_();
+  //                       }
+  //                       socket_.close();
+  //                     });
+  // }
+
+  void setOnMessage(
+      std::function<void(const std::vector<uint8_t> &)> handler) override {
+    on_message_handler_ = std::move(handler);
+  }
+
+  void setOnConnect(std::function<void()> handler) override {
+    on_connect_handler_ = std::move(handler);
+  }
+
+  void setOnDisconnect(std::function<void()> handler) override {
+    on_disconnect_handler_ = std::move(handler);
+  }
+
+  void startReading() {
+    if (!is_active_)
+      return;
+
+    // Сначала читаем размер сообщения (4 байта)
+    boost::asio::async_read(
+        socket_, boost::asio::buffer(&message_size_, sizeof(message_size_)),
+        [this, self = shared_from_this()](const boost::system::error_code &ec,
+                                          size_t /*length*/) {
+          if (ec || !self->is_active_) {
+            return handleReadError(ec);
+          }
+
+          // Преобразуем размер из сетевого формата в локальный
+          message_size_ = ntohl(message_size_);
+
+          // Теперь читаем само сообщение согласно полученному размеру
+          message_buffer_.resize(message_size_);
+          boost::asio::async_read(
+              socket_, boost::asio::buffer(message_buffer_),
+              [this, self](const boost::system::error_code &ec,
+                           size_t /*length*/) {
+                if (ec || !self->is_active_) {
+                  return handleReadError(ec);
+                }
+
+                if (on_message_handler_) {
+                  on_message_handler_(message_buffer_);
+                }
+                startReading(); // продолжаем чтение
+              });
+        });
+  }
+
+  void handleReadError(const boost::system::error_code &ec) {
+    if (ec == boost::asio::error::eof || !socket_.is_open()) {
+      // Соединение закрыто нормально — штатное завершение
+      std::cerr << "Client disconnected gracefully\n";
+    } else if (ec) {
+      std::cerr << "Read error: " << ec.message() << "\n";
+    }
+    is_active_ = false;
+    if (on_disconnect_handler_) {
+      on_disconnect_handler_();
+    }
+  }
+
+  void doWrite() {
+    if (!is_active_ || write_queue_.empty()) {
+      is_writing_ = false;
+      return;
+    }
+    is_writing_ = true;
+    auto data = write_queue_.front();
+    boost::asio::async_write(
+        socket_, boost::asio::buffer(data),
+        [this, self = shared_from_this()](const boost::system::error_code &ec,
+                                          size_t /*length*/) {
+          if (!self->is_active_)
+            return;
+          if (!ec) {
+            self->write_queue_.pop_front();
+            self->is_writing_ = false;
+            self->doWrite();
+          } else {
+            std::cerr << "Write error: " << ec.message() << std::endl;
+            self->close();
+          }
+        });
+  }
+
+  void close() override {
+    boost::asio::post(socket_.get_executor(),
+                      [this, self = shared_from_this()]() {
+                        if (!is_active_)
+                          return;
+                        is_active_ = false;
+                        if (on_disconnect_handler_) {
+                          on_disconnect_handler_();
+                        }
+                        socket_.close();
+                      });
+  }
+
+  // void startReading() {
+  //   if (!is_active_)
+  //     return;
+
+  //   boost::asio::async_read_until(
+  //       socket_, read_buffer_, '\0',
+  //       [this, self = shared_from_this()](const boost::system::error_code
+  //       &ec,
+  //                                         size_t length) {
+  //         if (!self->is_active_)
+  //           return;
+
+  //         if (ec == boost::asio::error::eof || !self->socket_.is_open()) {
+  //           // Соединение закрыто нормально — штатное завершение
+  //           std::cerr << "Client disconnected gracefully\n";
+  //           if (on_disconnect_handler_) {
+  //             on_disconnect_handler_();
+  //           }
+  //           self->is_active_ = false;
+  //           return;
+  //         }
+
+  //         if (ec) {
+  //           std::cerr << "Read error: " << ec.message() << "\n";
+  //           if (on_disconnect_handler_) {
+  //             on_disconnect_handler_();
+  //           }
+  //           self->is_active_ = false;
+  //           return;
+  //         }
+
+  //         if (length == 0)
+  //           return;
+
+  //         std::vector<uint8_t> message(
+  //             boost::asio::buffer_cast<const uint8_t *>(read_buffer_.data()),
+  //             boost::asio::buffer_cast<const uint8_t *>(read_buffer_.data())
+  //             +
+  //                 length);
+
+  //         read_buffer_.consume(length);
+
+  //         if (!message.empty() && message.back() == '\0')
+  //           message.pop_back();
+
+  //         if (!message.empty() && on_message_handler_) {
+  //           on_message_handler_(message);
+  //         }
+
+  //         self->startReading(); // продолжаем чтение
+  //       });
+  // }
+
+private:
+  uint32_t message_size_ = 0;
+  std::vector<uint8_t> message_buffer_;
+
+  // void doWrite() {
+  //   if (!is_active_ || write_queue_.empty()) {
+  //     is_writing_ = false;
+  //     return;
+  //   }
+
+  //   is_writing_ = true;
+  //   auto data = write_queue_.front();
+
+  //   boost::asio::async_write(
+  //       socket_, boost::asio::buffer(data),
+  //       [this, self = shared_from_this()](const boost::system::error_code
+  //       &ec,
+  //                                         size_t /*length*/) {
+  //         if (!self->is_active_)
+  //           return;
+
+  //         if (!ec) {
+  //           self->write_queue_.pop_front();
+  //           self->is_writing_ = false;
+  //           self->doWrite();
+  //         } else {
+  //           std::cerr << "Write error: " << ec.message() << std::endl;
+  //           self->close();
+  //         }
+  //       });
+  // }
+};
+
+} // namespace network
+
+
+// ==== ФАЙЛ: libraries/Network/include/network/implementations/asio/AsioNetworkClient.hpp ====
+#include <boost/asio/ip/tcp.hpp>
+#include <network/INetworkClient.hpp>
+#include <network/implementations/asio/AsioSession.hpp>
+
+namespace network {
+
+class AsioNetworkClient
+    : public INetworkClient,
+      public std::enable_shared_from_this<AsioNetworkClient> {
+public:
+  AsioNetworkClient();
+  void connect(const std::string &host, const std::string &port) override;
+  void disconnect() override;
+  void send(const std::vector<uint8_t> &data) override;
+
+  void setOnConnect(std::function<void()> handler) override;
+  void setOnDisconnect(std::function<void()> handler) override;
+  void setOnMessage(
+      std::function<void(const std::vector<uint8_t> &)> handler) override;
+
+  void start() override;
+  void stop() override;
+
+private:
+  void handleReadError(const boost::system::error_code &ec);
+  boost::asio::io_context io_;
+  boost::asio::ip::tcp::socket socket_;
+  boost::asio::ip::tcp::resolver resolver_;
+  boost::asio::ip::tcp::resolver::results_type endpoints_;
+
+  std::function<void()> on_connect_handler_;
+  std::function<void()> on_disconnect_handler_;
+  std::function<void(const std::vector<uint8_t> &)> on_message_handler_;
+  std::deque<std::vector<uint8_t>> write_queue_;
+  std::mutex write_queue_mutex_;
+
+  bool is_writing_ = false;
+  bool is_active_ = true;
+
+  boost::asio::streambuf read_buffer_;
+
+  void doWrite();
+  void startReading();
+
+  uint32_t message_size_ = 0;
+  std::vector<uint8_t> message_buffer_;
+};
+
+} // namespace network
+
+
+// ==== ФАЙЛ: libraries/InversionOfControl/tests/IOC_test.cpp ====
+#include <InversionOfControl/InversionOfControl.h>
+#include <gtest/gtest.h>
+// Производные классы сервисов
+// tests/IoCContainerTest.cpp
+#include <gtest/gtest.h>
+#include <memory>
+
+struct ServiceA : BaseService {
+  int id() const { return 1; }
+};
+
+struct ServiceB : BaseService {
+  int id() const { return 2; }
+};
+
+struct ServiceC : BaseService {
+  int id() const { return 3; }
+};
+
+TEST(IoCContainerTest, RegisterAndResolveSimple) {
+  IoCContainer container;
+
+  container.registerService<BaseService>(
+      "service_a", []() { return std::make_shared<ServiceA>(); });
+
+  auto svc = container.resolve<ServiceA>("service_a");
+  EXPECT_EQ(svc->id(), 1);
+}
+
+TEST(IoCContainerTest, ResolveWithCustomCast) {
+  IoCContainer container;
+
+  container.registerService<BaseService>(
+      "service_a", []() { return std::make_shared<ServiceA>(); });
+
+  auto svc = container.resolve<ServiceA>("service_a", [](auto base) {
+    return std::dynamic_pointer_cast<ServiceA>(base);
+  });
+
+  EXPECT_EQ(svc->id(), 1);
+}
+
+TEST(IoCContainerTest, ResolveWrongTypeThrows) {
+  IoCContainer container;
+
+  container.registerService<ServiceA>(
+      "service_a", []() { return std::make_shared<ServiceA>(); });
+
+  EXPECT_THROW(container.resolve<ServiceB>("service_a"), std::runtime_error);
+}
+
+TEST(IoCContainerTest, ResolveNonExistentServiceThrows) {
+  IoCContainer container;
+
+  EXPECT_THROW(container.resolve<ServiceA>("nonexistent"), std::runtime_error);
+}
+
+TEST(IoCContainerTest, OverwriteServiceKey) {
+  IoCContainer container;
+
+  container.registerService<ServiceA>(
+      "service", []() { return std::make_shared<ServiceA>(); });
+
+  container.registerService<ServiceB>(
+      "service", []() { return std::make_shared<ServiceB>(); });
+
+  auto svc = container.resolve<ServiceB>("service");
+  EXPECT_EQ(svc->id(), 2);
+}
+
+TEST(IoCContainerTest, CustomResolverReturnsNullThrows) {
+  IoCContainer container;
+
+  container.registerService<ServiceA>(
+      "service_a", []() { return std::make_shared<ServiceA>(); });
+
+  EXPECT_THROW(container.resolve<ServiceA>(
+                   "service_a",
+                   [](auto) {
+                     return std::shared_ptr<ServiceA>(); // returns null
+                   }),
+               std::runtime_error);
+}
+
+TEST(IoCContainerTest, MultipleServicesRegisteredAndResolved) {
+  IoCContainer container;
+
+  container.registerService<ServiceA>(
+      "a", []() { return std::make_shared<ServiceA>(); });
+  container.registerService<ServiceB>(
+      "b", []() { return std::make_shared<ServiceB>(); });
+  container.registerService<ServiceC>(
+      "c", []() { return std::make_shared<ServiceC>(); });
+
+  EXPECT_EQ(container.resolve<ServiceA>("a")->id(), 1);
+  EXPECT_EQ(container.resolve<ServiceB>("b")->id(), 2);
+  EXPECT_EQ(container.resolve<ServiceC>("c")->id(), 3);
+}
+
+
+// ==== ФАЙЛ: libraries/InversionOfControl/src/InversionOfControl.cpp ====
+#include <InversionOfControl/InversionOfControl.h>
+
+
+// ==== ФАЙЛ: libraries/InversionOfControl/include/InversionOfControl/InversionOfControl.h ====
+#pragma once
+#include <functional>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+
+// Базовый класс для всех сервисов
+class BaseService {
+public:
+  virtual ~BaseService() = default;
+};
+
+// Класс IoC-контейнера
+
+class IoCContainer {
+private:
+  std::unordered_map<std::string, std::function<std::shared_ptr<BaseService>()>>
+      registry;
+
+public:
+  template <typename T>
+  void registerService(const std::string &key,
+                       std::function<std::shared_ptr<T>()> factory) {
+    registry[key] = [factory]() -> std::shared_ptr<BaseService> {
+      return factory();
+    };
+  }
+
+  template <typename T> std::shared_ptr<T> resolve(const std::string &key) {
+    auto it = registry.find(key);
+    if (it == registry.end()) {
+      throw std::runtime_error("Service with key '" + key +
+                               "' not registered.");
+    }
+
+    auto basePtr = it->second();
+    auto derivedPtr = std::dynamic_pointer_cast<T>(basePtr);
+    if (!derivedPtr) {
+      throw std::runtime_error("Failed to cast service to requested type.");
+    }
+
+    return derivedPtr;
+  }
+
+  template <typename T>
+  std::shared_ptr<T>
+  resolve(const std::string &key,
+          std::function<std::shared_ptr<T>(std::shared_ptr<BaseService>)>
+              processor) {
+    auto basePtr = resolve<BaseService>(key);
+    auto derivedPtr = processor(basePtr);
+
+    if (!derivedPtr) {
+      throw std::runtime_error("Custom resolver returned null.");
+    }
+
+    return derivedPtr;
+  }
+}
+
+;
+
+
+// ==== ФАЙЛ: libraries/Commands/tests/command_tests.cpp ====
+#include "CommandLib/Commands/RotateAndChangeVelocityCommand.hpp"
+#include <CommandLib/Commands/BurnFuelCommand.hpp>
+
+#include <CommandLib/Commands/MacroCommand.hpp>
+#include <CommandLib/Commands/MoveCommand.hpp>
+#include <CommandLib/Commands/MoveWithFuelCommand.hpp>
+#include <CommandLib/Commands/RotateCommand.hpp>
+#include <CommandLib/Exceptions/CommandException.hpp>
+#include <CommandLib/Mocks.hpp>
+#include <gtest/gtest.h>
+
+TEST(CommandTest, MoveCommand_Execute_UpdatesPosition) {
+    MockIObject obj;
+    std::array<double, 2> initial_pos{0.0, 0.0};
+    std::vector<uint8_t> pos_data(reinterpret_cast<const uint8_t*>(initial_pos.data()),
+                                  reinterpret_cast<const uint8_t*>(initial_pos.data()) + sizeof(double) * 2);
+    obj.SetProperty("position", pos_data);
+
+    MoveCommand cmd({1.0f, 2.0f});
+    cmd.Execute(&obj);
+
+    auto result = obj.GetProperty("position");
+    ASSERT_EQ(result.size(), sizeof(double) * 2);
+
+    double* data = reinterpret_cast<double*>(result.data());
+    EXPECT_DOUBLE_EQ(data[0], 1.0);
+    EXPECT_DOUBLE_EQ(data[1], 2.0);
+}
+
+TEST(CommandTest, RotateCommand_Execute_UpdatesRotation) {
+    MockIObject obj;
+    float initial_angle = 0.0f;
+    std::vector<uint8_t> angle_data(reinterpret_cast<const uint8_t*>(&initial_angle),
+                                    reinterpret_cast<const uint8_t*>(&initial_angle) + sizeof(float));
+    obj.SetProperty("rotation", angle_data);
+
+    RotateCommand cmd(45.0f);
+    cmd.Execute(&obj);
+
+    auto result = obj.GetProperty("rotation");
+    ASSERT_EQ(result.size(), sizeof(float));
+
+    float* data = reinterpret_cast<float*>(result.data());
+    EXPECT_FLOAT_EQ(*data, 45.0f);
+}
+
+TEST(CommandTest, BurnFuelCommand_Execute_DecreasesFuel) {
+    MockIObject obj;
+    float initial_fuel = 100.0f;
+    std::vector<uint8_t> fuel_data(reinterpret_cast<const uint8_t*>(&initial_fuel),
+                                   reinterpret_cast<const uint8_t*>(&initial_fuel) + sizeof(float));
+    obj.SetProperty("fuel", fuel_data);
+
+    BurnFuelCommand cmd(30.0f);
+    cmd.Execute(&obj);
+
+    auto result = obj.GetProperty("fuel");
+    ASSERT_EQ(result.size(), sizeof(float));
+
+    float* data = reinterpret_cast<float*>(result.data());
+    EXPECT_FLOAT_EQ(*data, 70.0f);
+}
+
+TEST(CommandTest, CheckFuelCommand_ThrowsIfNoFuelComponent)
+{
+    MockIObject obj;
+    EXPECT_THROW(CheckFuelCommand().Execute(&obj), CommandException);
+}
+
+TEST(CommandTest, CheckFuelCommand_PassIfEnoughFuel)
+{
+    MockIObject obj;
+    float fuel = 10.0f;
+    obj.SetProperty("fuel",
+                    std::vector<uint8_t>((uint8_t *) &fuel, (uint8_t *) &fuel + sizeof(fuel)));
+
+    EXPECT_NO_THROW(CheckFuelCommand().Execute(&obj));
+}
+
+TEST(CommandTest, MacroCommand_Execute_RunsAllCommands) {
+    MockIObject obj;
+
+    // Установим начальную позицию
+    std::array<double, 2> initial_pos{0.0, 0.0};
+    std::vector<uint8_t> pos_data(reinterpret_cast<const uint8_t*>(initial_pos.data()),
+                                  reinterpret_cast<const uint8_t*>(initial_pos.data()) + sizeof(double) * 2);
+    obj.SetProperty("position", pos_data);
+
+    // Создаем и добавляем команды в макрокоманду
+    MacroCommand macro;
+
+    std::array<double, 2> p1 = {1.0, 2.0};
+    std::array<double, 2> p2 = {3.0, 4.0};
+    macro.Add(std::make_shared<MoveCommand>(p1));
+    macro.Add(std::make_shared<MoveCommand>(p2));
+
+    // Выполняем макрокоманду
+    macro.Execute(&obj);
+
+    auto result = obj.GetProperty("position");
+    double* data = reinterpret_cast<double*>(result.data());
+    EXPECT_DOUBLE_EQ(data[0], 4.0);
+    EXPECT_DOUBLE_EQ(data[1], 6.0);
+}
+
+TEST(CommandTest, MoveCommand_Serialize_Deserialize_Execute) {
+    MoveCommand original({1.0f, 2.0f});
+    auto data = original.Serialize();
+
+    auto deserialized = ICommand::Deserialize(data.data(), data.size(), nullptr);
+    MockIObject obj;
+
+    std::array<double, 2> initial_pos{0.0, 0.0};
+    std::vector<uint8_t> pos_data(reinterpret_cast<const uint8_t*>(initial_pos.data()),
+                                  reinterpret_cast<const uint8_t*>(initial_pos.data()) + sizeof(double) * 2);
+    obj.SetProperty("position", pos_data);
+
+    deserialized->Execute(&obj);
+
+    auto result = obj.GetProperty("position");
+    double* data_out = reinterpret_cast<double*>(result.data());
+    EXPECT_DOUBLE_EQ(data_out[0], 1.0);
+    EXPECT_DOUBLE_EQ(data_out[1], 2.0);
+}
+
+TEST(CommandTest, MoveWithFuelCommand_SuccessfulMove)
+{
+    MockIObject obj;
+
+    float initial_fuel = 5.0f;
+    obj.SetProperty("fuel",
+                    std::vector<uint8_t>((uint8_t *) &initial_fuel,
+                                         (uint8_t *) (&initial_fuel + 1)));
+
+    std::array<double, 2> pos{0.0, 0.0};
+    obj.SetProperty("position",
+                    std::vector<uint8_t>((uint8_t *) pos.data(),
+                                         (uint8_t *) pos.data() + sizeof(pos)));
+
+    MoveWithFuelCommand cmd({1.0, 0.0});
+    cmd.Execute(&obj);
+
+    auto result_pos = obj.GetProperty("position");
+    double *data = reinterpret_cast<double *>(result_pos.data());
+    EXPECT_DOUBLE_EQ(data[0], 1.0);
+    EXPECT_DOUBLE_EQ(data[1], 0.0);
+
+    auto result_fuel = obj.GetProperty("fuel");
+    float *fuel = reinterpret_cast<float *>(result_fuel.data());
+    EXPECT_FLOAT_EQ(*fuel, 4.0f);
+}
+
+TEST(CommandTest, MacroCommand_ThrowsIfAnyFails)
+{
+    MockIObject obj;
+
+    MacroCommand macro;
+    macro.Add(std::make_shared<CheckFuelCommand>());
+    macro.Add(std::make_shared<MoveCommand>(std::array<double, 2>{1.0, 0.0}));
+
+    EXPECT_THROW(macro.Execute(&obj), CommandException); // топлива нет → ошибка
+}
+
+TEST(CommandTest, RotateAndChangeVelocityCommand_ChangeOnlyRotation)
+{
+    MockIObject obj;
+
+    float initial_angle = 0.0f;
+    obj.SetProperty("rotation",
+                    std::vector<uint8_t>(reinterpret_cast<const uint8_t *>(&initial_angle),
+                                         reinterpret_cast<const uint8_t *>(&initial_angle + 1)));
+
+    RotateAndChangeVelocityCommand cmd(45.0f, {0.0, 0.0});
+    cmd.Execute(&obj);
+
+    auto result_angle = obj.GetProperty("rotation");
+    float *angle = reinterpret_cast<float *>(result_angle.data());
+    EXPECT_NEAR(*angle, 45.0f, 0.01f);
+
+    EXPECT_FALSE(obj.HasProperty("velocity")); // скорость не должна измениться
+}
+
+TEST(CommandTest, RotateAndChangeVelocityCommand_ChangeRotationAndVelocity)
+{
+    MockIObject obj;
+
+    float initial_angle = 0.0f;
+    obj.SetProperty("rotation",
+                    std::vector<uint8_t>(reinterpret_cast<const uint8_t *>(&initial_angle),
+                                         reinterpret_cast<const uint8_t *>(&initial_angle + 1)));
+
+    std::array<double, 2> initial_vel{1.0, 0.0};
+    obj.SetProperty("velocity",
+                    std::vector<uint8_t>(reinterpret_cast<const uint8_t *>(initial_vel.data()),
+                                         reinterpret_cast<const uint8_t *>(initial_vel.data())
+                                             + 2 * sizeof(double)));
+
+    RotateAndChangeVelocityCommand cmd(90.0f, {0.0, 1.0});
+    cmd.Execute(&obj);
+
+    auto result_angle = obj.GetProperty("rotation");
+    float *angle = reinterpret_cast<float *>(result_angle.data());
+    EXPECT_NEAR(*angle, 90.0f, 0.01f);
+
+    auto result_vel = obj.GetProperty("velocity");
+    double *velocity = reinterpret_cast<double *>(result_vel.data());
+    EXPECT_DOUBLE_EQ(velocity[0], 1.0);
+    EXPECT_DOUBLE_EQ(velocity[1], 1.0);
+}
+
+
+// ==== ФАЙЛ: libraries/Commands/tests/ExceptionHandlerTest.cpp ====
+#include <CommandLib/Commands/CheckFuelCommand.hpp>
+#include <CommandLib/Commands/LogExceptionCommand.hpp>
+#include <CommandLib/Commands/RetryCommand.hpp>
+#include <CommandLib/Exceptions/ExceptionHandler.hpp>
+#include <CommandLib/Exceptions/LogRecoveryHandler.hpp>
+#include <CommandLib/Exceptions/NotEnoughFuelException.hpp>
+#include <CommandLib/Exceptions/RetryRecoveryHandler.hpp>
+#include <CommandLib/Exceptions/TwoTriesThenLogHandler.hpp>
+#include <CommandLib/Mocks.hpp>
+#include <gtest/gtest.h>
+
+TEST(ExceptionHandlerTest, RetryOnceThenLog) {
+    ExceptionHandler::GetInstance().RegisterHandler(std::make_shared<LogRecoveryHandler>());
+    ExceptionHandler::GetInstance().RegisterHandler(std::make_shared<RetryRecoveryHandler>());
+
+    MockIObject obj;
+    float initial_fuel = 0.5f;
+    std::vector<uint8_t> fuel_data(reinterpret_cast<const uint8_t *>(&initial_fuel),
+                                   reinterpret_cast<const uint8_t *>(&initial_fuel) + sizeof(float));
+    obj.SetProperty("fuel", fuel_data);
+
+    auto fuelCmd = std::make_shared<CheckFuelCommand>();
+    EXPECT_THROW(fuelCmd->Execute(&obj), NotEnoughFuelException);
+
+    try {
+        fuelCmd->Execute(&obj);
+    } catch (const std::exception& e) {
+        auto recovery = ExceptionHandler::GetInstance().Handle(fuelCmd, e);
+        ASSERT_TRUE(recovery != nullptr);
+        recovery->Execute(&obj); // повтор
+    }
+}
+
+TEST(TwoTriesThenLogTest, FailsAfterTwoRetries)
+{
+    // Регистрируем обработчики
+    ExceptionHandler::GetInstance().RegisterHandler(std::make_shared<TwoTriesThenLogHandler>());
+    ExceptionHandler::GetInstance().RegisterHandler(std::make_shared<LogRecoveryHandler>());
+
+    MockIObject obj;
+
+    // fuelCmd теперь ICommand*
+    auto fuelCmd = std::shared_ptr<ICommand>(std::make_shared<CheckFuelCommand>());
+
+    for (int i = 0; i < 3; ++i) {
+        try {
+            fuelCmd->Execute(&obj);
+        } catch (const std::exception &e) {
+            auto recovery = ExceptionHandler::GetInstance().Handle(fuelCmd, e);
+            if (!recovery)
+                break;
+
+            // Пробуем понять, что вернулось: RetryCommand или LogExceptionCommand
+            if (auto retry = std::dynamic_pointer_cast<RetryCommand>(recovery)) {
+                fuelCmd = retry->original(); // повторяем оригинальную команду
+            } else {
+                fuelCmd = recovery; // это, например, LogExceptionCommand
+            }
+        }
+    }
+
+    // На третьей итерации должна быть команда логирования
+    EXPECT_EQ(typeid(*fuelCmd.get()), typeid(LogExceptionCommand));
+}
+
+
+// ==== ФАЙЛ: libraries/Commands/src/CommandQueue.cpp ====
+#include <CommandLib/CommandQueue.hpp>
+
+void CommandQueue::Push(std::shared_ptr<ICommand> command,
+                        std::shared_ptr<IObject> obj) {
+  std::lock_guard<std::mutex> lock(mtx_);
+  queue_.push({command, obj});
+  cv_.notify_one();
+}
+
+CommandQueueItem CommandQueue::Pop() {
+  std::unique_lock<std::mutex> lock(mtx_);
+  cv_.wait(lock, [this] { return !queue_.empty() || stopped_; });
+  if (stopped_)
+    return {};
+  auto cmd = queue_.front();
+  queue_.pop();
+  return cmd;
+}
+
+bool CommandQueue::Empty() const {
+    std::lock_guard<std::mutex> lock(mtx_);
+    return queue_.empty();
+}
+
+void CommandQueue::Stop() {
+    std::lock_guard<std::mutex> lock(mtx_);
+    stopped_ = true;
+    cv_.notify_all();
+}
+
+bool CommandQueue::IsStopped() const {
+    std::lock_guard<std::mutex> lock(mtx_);
+    return stopped_;
+}
+
+
+// ==== ФАЙЛ: libraries/Commands/src/ICommand.cpp ====
+#include <CommandLib/ICommand.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/serialization/string.hpp>
+#include <sstream>
+
+// Реализация реестра команд
+std::unordered_map<std::string, ICommand::Deserializer> &ICommand::getRegistry()
+{
+    static std::unordered_map<std::string, ICommand::Deserializer> registry;
+    return registry;
+}
+
+std::mutex &ICommand::getMutex()
+{
+    static std::mutex mtx;
+    return mtx;
+}
+
+void ICommand::RegisterCommand(const std::string &type, Deserializer deserializer)
+{
+    std::lock_guard<std::mutex> lock(getMutex());
+    getRegistry()[type] = std::move(deserializer);
+}
+
+std::shared_ptr<ICommand> ICommand::Deserialize(const uint8_t *data, size_t size, IObject *context)
+{
+    if (!data || size == 0)
+        return nullptr;
+
+    try {
+        std::istringstream iss(std::string(reinterpret_cast<const char *>(data), size));
+        boost::archive::binary_iarchive iar(iss);
+
+        std::string type;
+        iar >> type;
+
+        std::lock_guard<std::mutex> lock(getMutex());
+        auto it = getRegistry().find(type);
+        if (it == getRegistry().end())
+            return nullptr;
+
+        return it->second(data, size, context);
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+
+// ==== ФАЙЛ: libraries/Commands/src/Exceptions/LogRecoveryHandler.cpp ====
+#include <CommandLib/Commands/LogExceptionCommand.hpp>
+#include <CommandLib/Exceptions/LogRecoveryHandler.hpp>
+#include <iostream>
+
+bool LogRecoveryHandler::CanHandle(std::shared_ptr<ICommand> command,
+                                  const std::exception& error) {
+    return true; // всегда можно залогировать
+}
+
+std::shared_ptr<ICommand> LogRecoveryHandler::Handle(std::shared_ptr<ICommand> command,
+                                                    const std::exception& error) {
+    std::cerr << "[LogRecoveryHandler] Logging exception: " << error.what() << std::endl;
+    return std::make_shared<LogExceptionCommand>(error.what());
+}
+
+
+// ==== ФАЙЛ: libraries/Commands/src/Exceptions/NotEnoughFuelException.cpp ====
+#include <CommandLib/Exceptions/NotEnoughFuelException.hpp>
+
+NotEnoughFuelException::NotEnoughFuelException(const std::string& msg)
+    : CommandException(msg) {}
+
+
+// ==== ФАЙЛ: libraries/Commands/src/Exceptions/TwoTriesThenLogHandler.cpp ====
+#include <CommandLib/Commands/LogExceptionCommand.hpp>
+#include <CommandLib/Commands/RetryCommand.hpp>
+#include <CommandLib/Exceptions/TwoTriesThenLogHandler.hpp>
+#include <iostream>
+
+TwoTriesThenLogHandler::TwoTriesThenLogHandler() = default;
+
+bool TwoTriesThenLogHandler::CanHandle(std::shared_ptr<ICommand> command,
+                                      const std::exception& error) {
+    std::lock_guard<std::mutex> lock(mtx_);
+    return true;
+}
+
+std::shared_ptr<ICommand> TwoTriesThenLogHandler::Handle(
+    std::shared_ptr<ICommand> command,
+    const std::exception& error)
+{
+    std::lock_guard<std::mutex> lock(mtx_);
+    int count = retry_count_[command]++;
+    if (count < 2) {
+        std::cerr << "[TwoTriesThenLogHandler] Retrying (" << count + 1 << "/2)" << std::endl;
+        return std::make_shared<RetryCommand>(command);
+    } else {
+        std::cerr << "[TwoTriesThenLogHandler] Giving up. Logging error." << std::endl;
+        retry_count_.erase(command);
+        return std::make_shared<LogExceptionCommand>("Failed after 2 retries: " + std::string(error.what()));
+    }
+}
+
+
+// ==== ФАЙЛ: libraries/Commands/src/Exceptions/CommandException.cpp ====
+#include <CommandLib/Exceptions/CommandException.hpp>
+
+CommandException::CommandException(const std::string& msg)
+    : std::runtime_error(msg) {}
+
+
+// ==== ФАЙЛ: libraries/Commands/src/Exceptions/ExceptionHandler.cpp ====
+#include <CommandLib/Exceptions/ExceptionHandler.hpp>
+#include <iostream>
+
+ExceptionHandler& ExceptionHandler::GetInstance() {
+    static ExceptionHandler instance;
+    return instance;
+}
+
+void ExceptionHandler::RegisterHandler(std::shared_ptr<IRecoveryHandler> handler) {
+    std::lock_guard<std::mutex> lock(mtx_);
+    handlers_.push_back(handler);
+}
+
+std::shared_ptr<ICommand> ExceptionHandler::Handle(
+    std::shared_ptr<ICommand> command,
+    const std::exception& error)
+{
+    std::lock_guard<std::mutex> lock(mtx_);
+
+    for (auto& handler : handlers_) {
+        if (handler->CanHandle(command, error)) {
+            return handler->Handle(command, error);
+        }
+    }
+
+    std::cerr << "[ExceptionHandler] No recovery handler found" << std::endl;
+    return nullptr;
+}
+
+
+// ==== ФАЙЛ: libraries/Commands/src/Exceptions/RetryRecoveryHandler.cpp ====
+#include <CommandLib/Commands/RetryCommand.hpp>
+#include <CommandLib/Exceptions/RetryRecoveryHandler.hpp>
+#include <iostream>
+
+bool RetryRecoveryHandler::CanHandle(std::shared_ptr<ICommand> command,
+                                   const std::exception& error) {
+    return true; // попробуем повторить любую команду
+}
+
+std::shared_ptr<ICommand> RetryRecoveryHandler::Handle(
+    std::shared_ptr<ICommand> command,
+    const std::exception& error)
+{
+    std::cerr << "[RetryRecoveryHandler] Retrying command..." << std::endl;
+    return std::make_shared<RetryCommand>(command);
+}
+
+
+// ==== ФАЙЛ: libraries/Commands/src/Commands/LogExceptionCommand.cpp ====
+#include <CommandLib/Commands/LogExceptionCommand.hpp>
+#include <iostream>
+
+LogExceptionCommand::LogExceptionCommand(const std::string& msg) : message_(msg) {}
+
+void LogExceptionCommand::Execute(IObject* object) {
+    std::cerr << "[LOG] " << message_ << std::endl;
+}
+
+std::vector<uint8_t> LogExceptionCommand::Serialize() const
+{
+    return {};
+}
+
+std::string LogExceptionCommand::Type() const
+{
+    return "LogExceptionCommand";
+}
+
+
+// ==== ФАЙЛ: libraries/Commands/src/Commands/BurnFuelCommand.cpp ====
+#include <CommandLib/Commands/BurnFuelCommand.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <sstream>
+
+BurnFuelCommand::BurnFuelCommand(float amount) : amount_(amount) {}
+
+void BurnFuelCommand::Execute(IObject* object) {
+    if (!object->HasProperty("fuel")) return;
+
+    auto fuelData = object->GetProperty("fuel");
+    float* fuel = reinterpret_cast<float*>(fuelData.data());
+    *fuel = std::max(*fuel - amount_, 0.0f);
+    object->SetProperty("fuel", std::vector<uint8_t>(
+        reinterpret_cast<uint8_t*>(fuel),
+        reinterpret_cast<uint8_t*>(fuel + 1)));
+}
+
+std::vector<uint8_t> BurnFuelCommand::Serialize() const {
+    std::ostringstream oss;
+    boost::archive::binary_oarchive oa(oss);
+    oa << Type();
+    oa << *this;
+    return {oss.str().begin(), oss.str().end()};
+}
+
+std::string BurnFuelCommand::Type() const {
+    return "BurnFuelCommand";
+}
+
+namespace {
+bool registered = []() -> bool {
+    ICommand::RegisterCommand("BurnFuelCommand", [](const uint8_t* data, size_t size, IObject* context) {
+        std::istringstream iss(std::string(reinterpret_cast<const char*>(data), size));
+        boost::archive::binary_iarchive iar(iss);
+        std::string type;
+        
+        iar >> type;
+        BurnFuelCommand cmd(0.0f);
+        iar >> cmd;
+        return std::make_shared<BurnFuelCommand>(cmd);
+    });
+    return true;
+}();
+}
+
+
+// ==== ФАЙЛ: libraries/Commands/src/Commands/MacroCommand.cpp ====
+#include <CommandLib/Commands/MacroCommand.hpp>
+#include <CommandLib/Exceptions/CommandException.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <sstream>
+
+void MacroCommand::Add(std::shared_ptr<ICommand> command) {
+    commands_.push_back(command);
+}
+
+void MacroCommand::Execute(IObject* object) {
+    for (auto &cmd : commands_) {
+        try {
+            cmd->Execute(object);
+        } catch (...) {
+            // пробрасываем первое исключение
+            throw CommandException("MacroCommand failed during execution");
+        }
+    }
+}
+
+std::vector<uint8_t> MacroCommand::Serialize() const {
+    std::ostringstream oss;
+    boost::archive::binary_oarchive oa(oss);
+    oa << Type();
+    oa << commands_;
+    return {oss.str().begin(), oss.str().end()};
+}
+
+std::string MacroCommand::Type() const {
+    return "MacroCommand";
+}
+
+std::vector<std::shared_ptr<ICommand>> MacroCommand::GetCommands() const {
+    return commands_;
+}
+
+namespace {
+bool registered = []() -> bool {
+    ICommand::RegisterCommand("MacroCommand", [](const uint8_t* data, size_t size, IObject* context) {
+        std::istringstream iss(std::string(reinterpret_cast<const char*>(data), size));
+        boost::archive::binary_iarchive iar(iss);
+        std::string type;
+        iar >> type;
+        MacroCommand cmd;
+        iar >> cmd;
+        return std::make_shared<MacroCommand>(cmd);
+    });
+    return true;
+}();
+}
+
+
+// ==== ФАЙЛ: libraries/Commands/src/Commands/CheckFuelCommand.cpp ====
+#include <CommandLib/Commands/CheckFuelCommand.hpp>
+#include <CommandLib/Exceptions/NotEnoughFuelException.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <iostream>
+#include <sstream>
+
+void CheckFuelCommand::Execute(IObject* object) {
+    if (!object->HasProperty("fuel")) {
+        throw CommandException("No fuel component");
+    }
+
+    auto fuelData = object->GetProperty("fuel");
+    float *fuel = reinterpret_cast<float *>(fuelData.data());
+
+    if (*fuel <= 1.0f) {
+        throw NotEnoughFuelException("Not enough fuel to move");
+    }
+}
+
+std::vector<uint8_t> CheckFuelCommand::Serialize() const {
+    std::ostringstream oss;
+    boost::archive::binary_oarchive oa(oss);
+    oa << Type();
+    return {oss.str().begin(), oss.str().end()};
+}
+
+std::string CheckFuelCommand::Type() const {
+    return "CheckFuelCommand";
+}
+
+namespace {
+bool registered = []() -> bool {
+    ICommand::RegisterCommand("CheckFuelCommand", [](const uint8_t* data, size_t size, IObject* context) {
+        return std::make_shared<CheckFuelCommand>();
+    });
+    return true;
+}();
+}
+
+
+// ==== ФАЙЛ: libraries/Commands/src/Commands/RetryCommand.cpp ====
+#include <CommandLib/Commands/RetryCommand.hpp>
+#include <iostream>
+
+RetryCommand::RetryCommand(std::shared_ptr<ICommand> original) : original_(original) {}
+
+void RetryCommand::Execute(IObject* object) {
+    try {
+        original_->Execute(object); // повторяем команду
+    } catch (const std::exception& e) {
+        throw; // если снова ошибка — пробрасываем
+    }
+}
+
+std::vector<uint8_t> RetryCommand::Serialize() const
+{
+    return {};
+}
+
+std::string RetryCommand::Type() const
+{
+    return "RetryCommand";
+}
+
+std::shared_ptr<ICommand> RetryCommand::original() const
+{
+    return original_;
+}
+
+
+// ==== ФАЙЛ: libraries/Commands/src/Commands/RecoveryMacroCommand.cpp ====
+#include <CommandLib/Commands/RecoveryMacroCommand.hpp>
+
+void RecoveryMacroCommand::Add(std::shared_ptr<ICommand> cmd) {
+    commands_.push_back(cmd);
+}
+
+void RecoveryMacroCommand::Execute(IObject* object) {
+    for (auto& cmd : commands_) {
+        try {
+            cmd->Execute(object);
+        } catch (...) {
+            throw; // Пробрасываем дальше, пусть кто-то другой решает
+        }
+    }
+}
+
+std::vector<uint8_t> RecoveryMacroCommand::Serialize() const
+{
+    return {};
+}
+
+std::string RecoveryMacroCommand::Type() const
+{
+    return "RecoveryMacroCommand";
+}
+
+
+// ==== ФАЙЛ: libraries/Commands/src/Commands/RotateCommand.cpp ====
+#include <CommandLib/Commands/RotateCommand.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <sstream>
+
+RotateCommand::RotateCommand(float angle) : angle_(angle) {}
+
+void RotateCommand::Execute(IObject* object) {
+    if (!object->HasProperty("rotation")) return;
+
+    auto rotData = object->GetProperty("rotation");
+    float* rotation = reinterpret_cast<float*>(rotData.data());
+    *rotation += angle_;
+    object->SetProperty("rotation", std::vector<uint8_t>(
+        reinterpret_cast<uint8_t*>(rotation),
+        reinterpret_cast<uint8_t*>(rotation + 1)));
+}
+
+std::vector<uint8_t> RotateCommand::Serialize() const {
+    std::ostringstream oss;
+    boost::archive::binary_oarchive oa(oss);
+    oa << Type();
+    oa << *this;
+    return {oss.str().begin(), oss.str().end()};
+}
+
+std::string RotateCommand::Type() const {
+    return "RotateCommand";
+}
+
+namespace {
+bool registered = []() -> bool {
+    ICommand::RegisterCommand("RotateCommand", [](const uint8_t* data, size_t size, IObject* context) {
+        std::istringstream iss(std::string(reinterpret_cast<const char*>(data), size));
+        boost::archive::binary_iarchive iar(iss);
+        std::string type;
+        iar >> type;
+        RotateCommand cmd(0.0f);
+        iar >> cmd;
+        return std::make_shared<RotateCommand>(cmd);
+    });
+    return true;
+}();
+}
+
+
+// ==== ФАЙЛ: libraries/Commands/src/Commands/MoveCommand.cpp ====
+#include <CommandLib/Commands/MoveCommand.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <sstream>
+
+MoveCommand::MoveCommand(const std::array<double, 2> &delta)
+    : delta_(delta)
+{}
+
+void MoveCommand::Execute(IObject* object) {
+    if (!object->HasProperty("position")) return;
+
+    auto posData = object->GetProperty("position");
+    double* position = reinterpret_cast<double*>(posData.data());
+    position[0] += delta_[0];
+    position[1] += delta_[1];
+
+    object->SetProperty("position", std::vector<uint8_t>(
+        reinterpret_cast<uint8_t*>(position), reinterpret_cast<uint8_t*>(position + 2)));
+}
+
+std::vector<uint8_t> MoveCommand::Serialize() const {
+    std::ostringstream oss;
+    boost::archive::binary_oarchive oa(oss);
+    oa << Type();
+    oa << *this;
+    return {oss.str().begin(), oss.str().end()};
+}
+
+std::string MoveCommand::Type() const { return "MoveCommand"; }
+
+namespace {
+bool registered = []() -> bool {
+    ICommand::RegisterCommand("MoveCommand", [](const uint8_t* data, size_t size, IObject* context) {
+        std::istringstream iss(std::string(reinterpret_cast<const char*>(data), size));
+        boost::archive::binary_iarchive iar(iss);
+        std::string type;
+        iar >> type;
+        MoveCommand cmd(std::array<double, 2>{0, 0});
+        iar >> cmd;
+        return std::make_shared<MoveCommand>(cmd);
+    });
+    return true;
+}();
+}
+
+
+// ==== ФАЙЛ: libraries/Commands/src/Commands/ChangeVelocityCommand.cpp ====
+#include <CommandLib/Commands/ChangeVelocityCommand.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <sstream>
+
+ChangeVelocityCommand::ChangeVelocityCommand(const std::array<double, 2> &delta)
+    : delta_(delta)
+{}
+
+void ChangeVelocityCommand::Execute(IObject* object) {
+    if (!object->HasProperty("velocity")) return;
+
+    auto velData = object->GetProperty("velocity");
+    double* velocity = reinterpret_cast<double*>(velData.data());
+    velocity[0] += delta_[0];
+    velocity[1] += delta_[1];
+    object->SetProperty("velocity", std::vector<uint8_t>(
+        reinterpret_cast<uint8_t*>(velocity), reinterpret_cast<uint8_t*>(velocity + 2)));
+}
+
+std::vector<uint8_t> ChangeVelocityCommand::Serialize() const {
+    std::ostringstream oss;
+    boost::archive::binary_oarchive oa(oss);
+    oa << Type();
+    oa << *this;
+    return {oss.str().begin(), oss.str().end()};
+}
+
+std::string ChangeVelocityCommand::Type() const {
+    return "ChangeVelocityCommand";
+}
+
+namespace {
+bool registered = []() -> bool {
+    ICommand::RegisterCommand("ChangeVelocityCommand",
+                              [](const uint8_t *data, size_t size, IObject *context) {
+                                  std::istringstream iss(
+                                      std::string(reinterpret_cast<const char *>(data), size));
+                                  boost::archive::binary_iarchive iar(iss);
+                                  std::string type;
+                                  iar >> type;
+                                  ChangeVelocityCommand cmd(std::array<double, 2>{0, 0});
+                                  iar >> cmd;
+                                  return std::make_shared<ChangeVelocityCommand>(cmd);
+                              });
+    return true;
+}();
+}
+
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/IObject.hpp ====
+#pragma once
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
+class IObject {
+public:
+    virtual ~IObject() = default;
+    virtual void SetProperty(const std::string& key, const std::vector<uint8_t>& value) = 0;
+    virtual std::vector<uint8_t> GetProperty(const std::string& key) const = 0;
+    virtual bool HasProperty(const std::string& key) const = 0;
+};
+
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/CommandQueue.hpp ====
+#pragma once
+
+#include "ICommand.hpp"
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+
+struct CommandQueueItem {
+  std::shared_ptr<ICommand> command;
+  std::shared_ptr<IObject> context;
+};
+
+class CommandQueue {
+public:
+  void Push(std::shared_ptr<ICommand> command,
+            std::shared_ptr<IObject> context);
+  CommandQueueItem Pop();
+  bool Empty() const;
+
+  void Stop();
+  bool IsStopped() const;
+
+private:
+  std::queue<CommandQueueItem> queue_;
+  mutable std::mutex mtx_;
+  std::condition_variable cv_;
+  bool stopped_ = false;
+};
+
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/ICommand.hpp ====
+#pragma once
+
+#include "IObject.hpp"
+#include <functional>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include <boost/serialization/export.hpp>
+
+class ICommand {
+public:
+    virtual ~ICommand() = default;
+    virtual void Execute(IObject* object) = 0;
+    virtual std::vector<uint8_t> Serialize() const = 0;
+    virtual std::string Type() const = 0;
+    using Deserializer = std::function<std::shared_ptr<ICommand>(const uint8_t*, size_t, IObject*)>;
+
+    static void RegisterCommand(const std::string& type, Deserializer deserializer);
+    static std::shared_ptr<ICommand> Deserialize(const uint8_t* data, size_t size, IObject* context);
+
+private:
+    static std::unordered_map<std::string, Deserializer>& getRegistry();
+    static std::mutex& getMutex();
+};
+
+BOOST_SERIALIZATION_ASSUME_ABSTRACT(ICommand)
+
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Mocks.hpp ====
+#pragma once
+
+#include <CommandLib/IObject.hpp>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+// === Mock реализация IObject для тестов ===
+class MockIObject : public IObject {
+public:
+    void SetProperty(const std::string& key, const std::vector<uint8_t>& value) override {
+        properties_[key] = value;
+    }
+
+    std::vector<uint8_t> GetProperty(const std::string& key) const override {
+        auto it = properties_.find(key);
+        if (it == properties_.end()) return {};
+        return it->second;
+    }
+
+    bool HasProperty(const std::string& key) const override {
+        return properties_.find(key) != properties_.end();
+    }
+
+    void Clear() {
+        properties_.clear();
+    }
+
+private:
+    std::unordered_map<std::string, std::vector<uint8_t>> properties_;
+};
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Exceptions/TwoTriesThenLogHandler.hpp ====
+#pragma once
+
+#include "IRecoveryHandler.hpp"
+#include <unordered_map>
+#include <atomic>
+
+class TwoTriesThenLogHandler : public IRecoveryHandler {
+public:
+    TwoTriesThenLogHandler();
+
+    bool CanHandle(std::shared_ptr<ICommand> command, const std::exception& error) override;
+    std::shared_ptr<ICommand> Handle(std::shared_ptr<ICommand> command,
+                                    const std::exception& error) override;
+
+private:
+    std::unordered_map<std::shared_ptr<ICommand>, int> retry_count_;
+    std::mutex mtx_;
+};
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Exceptions/NotEnoughFuelException.hpp ====
+#pragma once
+
+#include "CommandException.hpp"
+
+class NotEnoughFuelException : public CommandException {
+public:
+    explicit NotEnoughFuelException(const std::string& msg);
+};
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Exceptions/CommandException.hpp ====
+#pragma once
+
+#include <stdexcept>
+#include <string>
+
+class CommandException : public std::runtime_error {
+public:
+    explicit CommandException(const std::string& msg);
+};
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Exceptions/LogRecoveryHandler.hpp ====
+#pragma once
+
+#include "IRecoveryHandler.hpp"
+
+class LogRecoveryHandler : public IRecoveryHandler {
+public:
+    bool CanHandle(std::shared_ptr<ICommand> command, const std::exception& error) override;
+    std::shared_ptr<ICommand> Handle(std::shared_ptr<ICommand> command,
+                                    const std::exception& error) override;
+};
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Exceptions/ExceptionHandler.hpp ====
+#pragma once
+
+#include <CommandLib/Exceptions/IRecoveryHandler.hpp>
+#include <mutex>
+#include <vector>
+
+class ExceptionHandler {
+public:
+    static ExceptionHandler& GetInstance();
+
+    void RegisterHandler(std::shared_ptr<IRecoveryHandler> handler);
+    std::shared_ptr<ICommand> Handle(std::shared_ptr<ICommand> cmd, const std::exception& e);
+
+private:
+    ExceptionHandler() = default;
+    std::vector<std::shared_ptr<IRecoveryHandler>> handlers_;
+    std::mutex mtx_;
+};
+
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Exceptions/IRecoveryHandler.hpp ====
+#pragma once
+
+#include <CommandLib/ICommand.hpp>
+#include <exception>
+
+class IRecoveryHandler {
+public:
+    virtual ~IRecoveryHandler() = default;
+    virtual bool CanHandle(std::shared_ptr<ICommand> command, const std::exception& error) = 0;
+    virtual std::shared_ptr<ICommand> Handle(std::shared_ptr<ICommand> command,
+                                             const std::exception& error) = 0;
+};
+
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Exceptions/RetryRecoveryHandler.hpp ====
+#pragma once
+
+#include "IRecoveryHandler.hpp"
+
+class RetryRecoveryHandler : public IRecoveryHandler {
+public:
+    bool CanHandle(std::shared_ptr<ICommand> command, const std::exception& error) override;
+    std::shared_ptr<ICommand> Handle(std::shared_ptr<ICommand> command,
+                                    const std::exception& error) override;
+};
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Commands/MoveCommand.hpp ====
+#pragma once
+
+#include "../ICommand.hpp"
+#include <array>
+#include <boost/serialization/array.hpp>
+#include <boost/serialization/nvp.hpp>
+
+class MoveCommand : public ICommand {
+public:
+    explicit MoveCommand(const std::array<double, 2> &delta);
+    void Execute(IObject* object) override;
+    std::vector<uint8_t> Serialize() const override;
+
+    std::string Type() const override;
+
+private:
+    std::array<double, 2> delta_;
+
+    friend class boost::serialization::access;
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int) {
+        ar & BOOST_SERIALIZATION_NVP(delta_);
+    }
+};
+
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Commands/LogExceptionCommand.hpp ====
+#pragma once
+
+#include <CommandLib/ICommand.hpp>
+#include <string>
+
+class LogExceptionCommand : public ICommand {
+public:
+    explicit LogExceptionCommand(const std::string& msg);
+    void Execute(IObject* object) override;
+    std::vector<uint8_t> Serialize() const override;
+    std::string Type() const override;
+
+private:
+    std::string message_;
+};
+
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Commands/RecoveryMacroCommand.hpp ====
+#pragma once
+
+#include <CommandLib/ICommand.hpp>
+#include <vector>
+
+class RecoveryMacroCommand : public ICommand {
+public:
+    void Add(std::shared_ptr<ICommand> cmd);
+    void Execute(IObject* object) override;
+    std::vector<uint8_t> Serialize() const override;
+    virtual std::string Type() const override;
+
+private:
+    std::vector<std::shared_ptr<ICommand>> commands_;
+};
+
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Commands/MoveWithFuelCommand.hpp ====
+#pragma once
+
+#include "../ICommand.hpp"
+#include <CommandLib/Commands/BurnFuelCommand.hpp>
+#include <CommandLib/Commands/CheckFuelCommand.hpp>
+#include <CommandLib/Commands/MacroCommand.hpp>
+#include <CommandLib/Commands/MoveCommand.hpp>
+#include <array>
+#include <boost/serialization/access.hpp>
+#include <boost/serialization/array.hpp>
+#include <boost/serialization/nvp.hpp>
+
+class MoveWithFuelCommand : public MacroCommand
+{
+public:
+    explicit MoveWithFuelCommand(const std::array<double, 2> &delta)
+    {
+        Add(std::make_shared<CheckFuelCommand>());
+        Add(std::make_shared<MoveCommand>(delta));
+        Add(std::make_shared<BurnFuelCommand>(1.0f)); // расход топлива за шаг
+    }
+};
+
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Commands/SharedICommandSerialization.hpp ====
+#pragma once
+
+#include <CommandLib/ICommand.hpp>
+#include <boost/serialization/serialization.hpp>
+#include <boost/serialization/shared_ptr.hpp>
+#include <boost/serialization/string.hpp>
+#include <boost/serialization/type_info_implementation.hpp>
+#include <boost/serialization/vector.hpp>
+
+namespace boost {
+namespace serialization {
+
+template<class Archive>
+void serialize(Archive &ar, std::shared_ptr<ICommand> &cmd, unsigned int version) {
+    split_free(ar, cmd, version);
+}
+
+} // namespace serialization
+} // namespace boost
+
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Commands/ChangeVelocityCommand.hpp ====
+#pragma once
+
+#include "../ICommand.hpp"
+#include <array>
+#include <boost/serialization/access.hpp>
+#include <boost/serialization/array.hpp>
+#include <boost/serialization/nvp.hpp>
+
+class ChangeVelocityCommand : public ICommand {
+public:
+    explicit ChangeVelocityCommand(const std::array<double, 2> &delta);
+    void Execute(IObject* object) override;
+    std::vector<uint8_t> Serialize() const override;
+
+    std::string Type() const override;
+
+private:
+    std::array<double, 2> delta_;
+
+    friend class boost::serialization::access;
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int) {
+        ar & BOOST_SERIALIZATION_NVP(delta_);
+    }
+};
+
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Commands/RetryCommand.hpp ====
+#pragma once
+
+#include <CommandLib/ICommand.hpp>
+
+class RetryCommand : public ICommand {
+public:
+    explicit RetryCommand(std::shared_ptr<ICommand> original);
+    void Execute(IObject* object) override;
+    std::vector<uint8_t> Serialize() const override;
+    std::string Type() const override;
+
+    std::shared_ptr<ICommand> original() const;
+
+private:
+    std::shared_ptr<ICommand> original_;
+};
+
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Commands/RotateAndChangeVelocityCommand.hpp ====
+#pragma once
+
+#include "../ICommand.hpp"
+#include <CommandLib/Commands/BurnFuelCommand.hpp>
+#include <CommandLib/Commands/ChangeVelocityCommand.hpp>
+#include <CommandLib/Commands/CheckFuelCommand.hpp>
+#include <CommandLib/Commands/MacroCommand.hpp>
+#include <CommandLib/Commands/MoveCommand.hpp>
+#include <CommandLib/Commands/RotateCommand.hpp>
+#include <array>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/serialization/access.hpp>
+#include <boost/serialization/array.hpp>
+#include <boost/serialization/nvp.hpp>
+#include <sstream>
+
+class RotateAndChangeVelocityCommand : public MacroCommand
+{
+public:
+    explicit RotateAndChangeVelocityCommand(float deltaRotate,
+                                            const std::array<double, 2> &deltaVelocity)
+    {
+        Add(std::make_shared<RotateCommand>(deltaRotate));
+        Add(std::make_shared<ChangeVelocityCommand>(deltaVelocity));
+        //Add(std::make_shared<BurnFuelCommand>(1.0f)); // расход топлива за шаг
+    }
+};
+
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Commands/MacroCommand.hpp ====
+#pragma once
+
+#include "../ICommand.hpp"
+#include <CommandLib/Commands/SharedICommandSerialization.hpp>
+#include <boost/serialization/access.hpp>
+#include <boost/serialization/nvp.hpp>
+#include <vector>
+
+class MacroCommand : public ICommand {
+public:
+    void Add(std::shared_ptr<ICommand> command);
+    void Execute(IObject* object) override;
+    std::vector<uint8_t> Serialize() const override;
+    std::string Type() const override;
+
+    std::vector<std::shared_ptr<ICommand>> GetCommands() const;
+
+private:
+    std::vector<std::shared_ptr<ICommand>> commands_;
+
+    friend class boost::serialization::access;
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int) {
+        ar & BOOST_SERIALIZATION_NVP(commands_);
+    }
+};
+
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Commands/RotateCommand.hpp ====
+#pragma once
+
+#include "../ICommand.hpp"
+#include <boost/serialization/access.hpp>
+#include <boost/serialization/nvp.hpp>
+
+class RotateCommand : public ICommand {
+public:
+    explicit RotateCommand(float angle);
+    void Execute(IObject* object) override;
+    std::vector<uint8_t> Serialize() const override;
+
+    std::string Type() const override;
+
+private:
+    float angle_;
+
+    friend class boost::serialization::access;
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int) {
+        ar & BOOST_SERIALIZATION_NVP(angle_);
+    }
+};
+
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Commands/CheckFuelCommand.hpp ====
+#pragma once
+#include <boost/serialization/access.hpp>
+
+#include "../ICommand.hpp"
+
+class CheckFuelCommand : public ICommand {
+public:
+    void Execute(IObject* object) override;
+    std::vector<uint8_t> Serialize() const override;
+    std::string Type() const override;
+
+    friend class boost::serialization::access;
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int) {}
+};
+
+
+// ==== ФАЙЛ: libraries/Commands/include/CommandLib/Commands/BurnFuelCommand.hpp ====
+#pragma once
+
+#include "../ICommand.hpp"
+#include <boost/serialization/nvp.hpp>
+
+class BurnFuelCommand : public ICommand {
+public:
+    explicit BurnFuelCommand(float amount);
+    void Execute(IObject* object) override;
+    std::vector<uint8_t> Serialize() const override;
+
+    std::string Type() const override;
+
+private:
+    float amount_;
+
+    friend class boost::serialization::access;
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int) {
+        ar & BOOST_SERIALIZATION_NVP(amount_);
+    }
+};
+
+
+// ==== ФАЙЛ: libraries/GameLogic/tests/GameLogicTests.cpp ====
+
+#include "gtest/gtest.h"
+#include <ECSEngineLib/Components/PositionComponent.hpp>
+#include <ECSEngineLib/Components/VelocityComponent.hpp>
+#include <ECSEngineLib/World.hpp>
+#include <ServerLogic/Player.hpp>
+#include <gtest/gtest.h>
+
+TEST(PlayerTest, CreatePlayerWithEntity) {
+  World world;
+  Entity entity = world.CreateEntity();
+  Player player(entity, world);
+
+  EXPECT_EQ(player.entity(), entity);
+}
+
+TEST(PlayerTest, SetAndGetPosition_Property) {
+  World world;
+  Entity entity = world.CreateEntity();
+  Player player(entity, world);
+
+  Vector<double, 2> expectedPos{1.0, 2.0};
+  std::array<double, 2> arr{expectedPos.x(), expectedPos.y()};
+  std::vector<uint8_t> data(arr.data(), arr.data() + sizeof(arr));
+
+  player.setPosition(expectedPos);
+
+  auto result = player.GetProperty("position");
+  ASSERT_EQ(result.size(), sizeof(arr));
+  auto pos = reinterpret_cast<const std::array<double, 2> *>(result.data());
+
+  EXPECT_DOUBLE_EQ((*pos)[0], expectedPos.x());
+  EXPECT_DOUBLE_EQ((*pos)[1], expectedPos.y());
+
+  // Проверяем через интерфейс IMovingObject
+  EXPECT_DOUBLE_EQ(player.getPosition().x(), expectedPos.x());
+  EXPECT_DOUBLE_EQ(player.getPosition().y(), expectedPos.y());
+}
+
+TEST(PlayerTest, HasPosition_Property) {
+  World world;
+  Entity entity = world.CreateEntity();
+  Player player(entity, world);
+
+  EXPECT_FALSE(player.HasProperty("position"));
+
+  Vector<double, 2> expectedPos{3.0, 4.0};
+  std::array<double, 2> arr{expectedPos.x(), expectedPos.y()};
+  std::vector<uint8_t> data(arr.data(), arr.data() + sizeof(arr));
+  player.SetProperty("position", data);
+
+  EXPECT_TRUE(player.HasProperty("position"));
+}
+
+TEST(PlayerTest, GetPosition_WhenNoComponent_ReturnsZero) {
+  World world;
+  Entity entity = world.CreateEntity();
+  Player player(entity, world);
+
+  Vector<double, 2> pos = player.getPosition();
+  EXPECT_DOUBLE_EQ(pos.x(), 0.0);
+  EXPECT_DOUBLE_EQ(pos.y(), 0.0);
+}
+
+TEST(PlayerTest, SetPosition_UpdatesComponent) {
+  World world;
+  Entity entity = world.CreateEntity();
+  Player player(entity, world);
+
+  Vector<double, 2> newPos{5.0, 6.0};
+  player.setPosition(newPos);
+
+  auto comp = world.GetComponent<PositionComponent>(entity);
+  ASSERT_NE(comp, nullptr);
+  EXPECT_DOUBLE_EQ(comp->getPosition()[0], newPos.x());
+  EXPECT_DOUBLE_EQ(comp->getPosition()[1], newPos.y());
+}
+
+TEST(PlayerTest, Clear_RemovesEntityFromWorld) {
+  World world;
+  Entity entity = world.CreateEntity();
+  Player player(entity, world);
+
+  player.Clear();
+
+  auto comp = world.GetComponent<PositionComponent>(entity);
+  EXPECT_EQ(comp, nullptr);
+  EXPECT_FALSE(world.HasComponent<PositionComponent>(entity));
+}
+
+TEST(PlayerTest, ChangeEntity_UpdatesInternalReference) {
+  World world;
+  Entity entity1 = world.CreateEntity();
+  Entity entity2 = world.CreateEntity();
+  Player player(entity1, world);
+
+  player.setEntity(entity2);
+
+  EXPECT_EQ(player.entity(), entity2);
+}
+
+
+// ==== ФАЙЛ: libraries/GameLogic/src/CommandExecutor.cpp ====
+// CommandExecutor.cpp
+#include <CommandLib/Exceptions/ExceptionHandler.hpp>
+#include <CommandLib/Exceptions/LogRecoveryHandler.hpp>
+#include <CommandLib/Exceptions/NotEnoughFuelException.hpp>
+#include <CommandLib/Exceptions/RetryRecoveryHandler.hpp>
+#include <CommandLib/Exceptions/TwoTriesThenLogHandler.hpp>
+#include <CommandLib/Mocks.hpp>
+#include <ServerLogic/CommandExecutor.hpp>
+#include <iostream>
+
+CommandExecutor::CommandExecutor(std::function<void()> updateCallback)
+    : updateCallback_(updateCallback) {
+
+  ExceptionHandler::GetInstance().RegisterHandler(
+      std::make_shared<LogRecoveryHandler>());
+  ExceptionHandler::GetInstance().RegisterHandler(
+      std::make_shared<RetryRecoveryHandler>());
+
+  // worker_ = std::thread(&CommandExecutor::WorkerLoop, this);
+}
+
+void CommandExecutor::WorkerLoop() {
+  // while (!stopped_) {
+  auto item = queue_.Pop();
+  if (!item.command || !item.context)
+    return;
+  //  continue;
+
+  try {
+    item.command->Execute(item.context.get());
+    if (updateCallback_)
+      updateCallback_();
+  } catch (const std::exception &e) {
+    auto handlerCommand =
+        ExceptionHandler::GetInstance().Handle(item.command, e);
+    handlerCommand->Execute(item.context.get()); // повтор
+  }
+}
+// }
+
+void CommandExecutor::EnqueueCommand(std::shared_ptr<ICommand> command,
+                                     std::shared_ptr<IObject> context) {
+  queue_.Push(command, context);
+}
+
+void CommandExecutor::StartProcessing() {
+  // Не используется, если поток запускается автоматически
+}
+
+CommandExecutor::~CommandExecutor() { Stop(); }
+
+void CommandExecutor::Stop() {
+  queue_.Stop();
+  // if (worker_.joinable())
+  //   worker_.join();
+}
+
+
+// ==== ФАЙЛ: libraries/GameLogic/src/Player.cpp ====
+// ECSBasedPlayer.cpp
+#include "ServerLogic/Player.hpp"
+#include <ECSEngineLib/Components/PositionComponent.hpp>
+#include <ECSEngineLib/Components/VelocityComponent.hpp>
+
+Player::Player(Entity entity, World &world) : entity_(entity), world_(world) {}
+
+void Player::SetProperty(const std::string &key,
+                         const std::vector<uint8_t> &value) {
+  if (key == "position") {
+    auto *arr = reinterpret_cast<const std::array<double, 2> *>(value.data());
+    auto comp = world_.GetComponent<PositionComponent>(entity_);
+    if (!comp) {
+      world_.AddComponent<PositionComponent>(
+          entity_, PositionComponent{{(*arr)[0], (*arr)[1]}});
+    } else {
+      comp->setPosition({(*arr)[0], (*arr)[1]});
+    }
+  }
+}
+
+std::vector<uint8_t> Player::GetProperty(const std::string &key) const {
+  std::vector<uint8_t> result;
+  if (key == "position") {
+    auto comp = world_.GetComponent<PositionComponent>(entity_);
+    if (comp) {
+      std::array<double, 2> pos = {comp->getPosition()[0],
+                                   comp->getPosition()[1]};
+      result.resize(sizeof(pos));
+      std::memcpy(result.data(), &pos, sizeof(pos));
+    }
+  }
+  return result;
+}
+
+bool Player::HasProperty(const std::string &key) const {
+  if (key == "position") {
+    return world_.HasComponent<PositionComponent>(entity_);
+  }
+  return false;
+}
+
+void Player::Clear() { world_.DestroyEntity(entity_); }
+
+Entity Player::entity() const { return entity_; }
+
+void Player::setEntity(Entity newEntity) { entity_ = newEntity; }
+
+Vector<double, 2> Player::getPosition() const {
+  auto comp = world_.GetComponent<PositionComponent>(entity_);
+  if (!comp)
+    return {0, 0};
+  return {comp->getPosition()[0], comp->getPosition()[1]};
+}
+
+Vector<double, 2> Player::getVelocity() const {
+  auto comp = world_.GetComponent<VelocityComponent>(entity_);
+  if (!comp)
+    return {0, 0};
+  return {comp->getVelocity()[0], comp->getVelocity()[1]};
+}
+
+void Player::setPosition(const Vector<double, 2> &newV) {
+  auto comp = world_.GetComponent<PositionComponent>(entity_);
+  if (!comp) {
+    world_.AddComponent<PositionComponent>(
+        entity_, PositionComponent{{newV.x(), newV.y()}});
+  } else {
+    comp->setPosition({newV.x(), newV.y()});
+  }
+}
+
+
+// ==== ФАЙЛ: libraries/GameLogic/examples/GameClient.cpp ====
+#include "CommandLib/Commands/BurnFuelCommand.hpp"
+#include <CommandLib/Commands/MoveCommand.hpp>
+#include <CommandLib/Commands/RotateCommand.hpp>
+#include <ECSEngineLib/World.hpp>
+#include <InversionOfControl/InversionOfControl.h>
+#include <ServerLogic/CommandExecutor.hpp>
+#include <ServerLogic/CommandService.hpp>
+#include <ServerLogic/Player.hpp>
+#include <ServerLogic/PlayerFactory.hpp>
+#include <iostream>
+#include <network/INetworkServer.hpp>
+#include <network/NetworkFactory.hpp>
+#include <string>
+#include <utils/conversionUtils.hpp>
+
+std::vector<uint8_t> SendMoveCommand(double x, double y) {
+  std::array<double, 2> delta{x, y};
+  auto moveCmd = std::make_shared<MoveCommand>(delta);
+  return moveCmd->Serialize();
+}
+
+std::vector<uint8_t> SendRotateCommand(float angle) {
+  auto rotCmd = std::make_shared<RotateCommand>(angle);
+  return rotCmd->Serialize();
+}
+
+std::vector<uint8_t> SendBurnFuelCommand(float fuel) {
+  auto rotCmd = std::make_shared<BurnFuelCommand>(fuel);
+  return rotCmd->Serialize();
+}
+
+int main(int, const char **) {
+
+  World ecsWorld;
+
+  // Создаем контейнер
+  auto container = std::make_shared<IoCContainer>();
+
+  // Регистрируем зависимости
+  container->registerService<PlayerFactory>(
+      "PlayerFactory", [&ecsWorld]() -> std::shared_ptr<PlayerFactory> {
+        return std::make_shared<DefaultPlayerFactory>(ecsWorld);
+      });
+
+  container->registerService<CommandService>(
+      "CommandService", []() -> std::shared_ptr<CommandService> {
+        return std::make_shared<CommandExecutor>([]() {
+          std::cout << "Game state updated\n" << std::flush;
+        });
+      });
+
+  std::string address = "127.0.0.1";
+  std::string port = "8080";
+
+  auto client = network::NetworkFactory::createClient();
+  client->setOnConnect([&]() {
+    std::cout << "Connected to server\n " << std::flush;
+
+    for (auto i = 0u; i < 3; ++i) {
+      client->send((SendMoveCommand(1, 0)));
+    }
+    client->send((SendBurnFuelCommand(15)));
+  });
+
+  client->setOnMessage([](const std::vector<uint8_t> &data) {
+    std::string msg(data.begin(), data.end());
+    std::cout << "Client received: " << msg << "\n" << std::flush;
+ 
+  });
+  client->connect(address, port);
+  client->start();
+}
+
+
+// ==== ФАЙЛ: libraries/GameLogic/examples/GameServer.cpp ====
+#include <ECSEngineLib/World.hpp>
+#include <InversionOfControl/InversionOfControl.h>
+#include <ServerLogic/Player.hpp>
+#include <ServerLogic/PlayerFactory.hpp>
+#include <iostream>
+#include <network/INetworkServer.hpp>
+#include <network/NetworkFactory.hpp>
+
+#include <ServerLogic/CommandExecutor.hpp>
+#include <ServerLogic/CommandService.hpp>
+
+int main(int, const char **) {
+
+  World ecsWorld;
+
+  // Создаем контейнер
+  auto container = std::make_shared<IoCContainer>();
+
+  // container->registerService<World>(
+  //     "WorldService",
+  //     [&ecsWorld]() -> std::shared_ptr<World> { return ecsWorld; });
+
+  // Регистрируем зависимости
+  container->registerService<PlayerFactory>(
+      "PlayerFactory", [&ecsWorld]() -> std::shared_ptr<PlayerFactory> {
+        return std::make_shared<DefaultPlayerFactory>(ecsWorld);
+      });
+
+  container->registerService<CommandService>(
+      "CommandService", [&ecsWorld]() -> std::shared_ptr<CommandService> {
+        return std::make_shared<CommandExecutor>([&ecsWorld]() {
+          std::cout << "Game state updated\n " << std::flush;
+          std::cout << ecsWorld << "\n " << std::flush;
+        });
+      });
+
+  // Сервер
+  auto networkServer = network::NetworkFactory::createServer(8080);
+
+  networkServer->setOnClientConnect([container,
+                                     &ecsWorld](ISession::Ptr session) {
+    auto playerFactory = container->resolve<PlayerFactory>("PlayerFactory");
+    auto commandService = container->resolve<CommandExecutor>("CommandService");
+    // auto worldService = container->resolve<World>("WorldService");
+
+    auto player = playerFactory->CreatePlayer();
+
+    std::cout << "Player connected with Entity ID: " << player->entity() << "\n"
+              << std::flush;
+
+    session->setOnMessage(
+        [commandService, player](const std::vector<uint8_t> &data) {
+          std::string msg(data.begin(), data.end());
+          auto deserialized =
+              ICommand::Deserialize(data.data(), data.size(), nullptr);
+          std::cout << "Received from player " << player->entity() << ": "
+                    << deserialized->Type() << "\n"
+                    << std::flush;
+          commandService->EnqueueCommand(deserialized, player);
+          commandService->WorkerLoop();
+          
+        });
+
+    session->setOnDisconnect([player, &ecsWorld]() {
+      ecsWorld.DestroyEntity(player->entity());
+      std::cout << "Player disconnected: Entity ID " << player->entity() << "\n"
+                << ecsWorld << std::flush;
+    });
+  });
+
+  networkServer->start();
+}
+
+
+// ==== ФАЙЛ: libraries/GameLogic/include/ServerLogic/Player.hpp ====
+#pragma once
+#include "ServerLogic/Math/Vector.h"
+#include <CommandLib/IObject.hpp>
+#include <ECSEngineLib/Entity.hpp>
+#include <ECSEngineLib/World.hpp>
+
+#include <string>
+#include <vector>
+
+class Player : public IObject {
+public:
+  explicit Player(Entity entity, World &world);
+
+  // === IObject ===
+  void SetProperty(const std::string &key,
+                   const std::vector<uint8_t> &value) override;
+  std::vector<uint8_t> GetProperty(const std::string &key) const override;
+  bool HasProperty(const std::string &key) const override;
+
+  // === IMovingObject ===
+  Vector<double, 2> getPosition() const;
+  Vector<double, 2> getVelocity() const;
+  void setPosition(const Vector<double, 2> &newV);
+
+  void Clear();
+
+  Entity entity() const;
+  void setEntity(Entity newEntity);
+
+private:
+  Entity entity_;
+  World &world_;
+};
+
+
+// ==== ФАЙЛ: libraries/GameLogic/include/ServerLogic/Server.h ====
+#include <Server/Entities/Commands.h>
+#include <Server/Entities/ObjectManager.h>
+#include <boost/asio.hpp>
+#include <iostream>
+#include <unordered_map>
+using boost::asio::ip::tcp;
+
+class GameServer
+{
+public:
+    GameServer(boost::asio::io_context &io_context, int agent_port, int player_port)
+        : agent_acceptor_(io_context, tcp::endpoint(tcp::v4(), agent_port))
+        , player_acceptor_(io_context, tcp::endpoint(tcp::v4(), player_port))
+        , next_agent_id_(1) // Счётчик для генерации ID
+        , object_manager_() // Инициализация ObjectManager
+    {
+        start_agent_accept();
+        start_player_accept();
+    }
+
+    void broadcast_to_players(const std::string &message)
+    {
+        for (auto &player : players_) {
+            if (player->is_open()) {
+                boost::asio::async_write(*player,
+                                         boost::asio::buffer(message + "\n"),
+                                         [this, player](const boost::system::error_code &error,
+                                                        std::size_t /*length*/) {
+                                             if (error) {
+                                                 std::cerr << "Error broadcasting to player: "
+                                                           << error.message() << std::endl;
+                                                 remove_player(player);
+                                             }
+                                         });
+            } else {
+                remove_player(player);
+            }
+        }
+    }
+
+private:
+    void start_agent_accept()
+    {
+        auto new_connection = std::make_shared<tcp::socket>(agent_acceptor_.get_executor());
+        agent_acceptor_.async_accept(
+            *new_connection, [this, new_connection](const boost::system::error_code &error) {
+                if (!error) {
+                    uint64_t agent_id = next_agent_id_++;
+                    std::cout << "Agent connected: " << new_connection->remote_endpoint()
+                              << " with ID: " << agent_id << std::endl;
+
+                    agents_[agent_id] = new_connection;            // Сохраняем соединение с ID
+                    command_manager_[agent_id] = CommandManager(); // Создаем CommandManager для агента
+
+                    // Создаем объект для агента
+
+                    const Vector<double, 2> &pos = {1, 1};
+                    const Vector<double, 2> &vel = {1, 0};
+                    auto object = std::make_shared<UObject>(pos, vel);
+                    uint64_t object_id = object_manager_.createObject(object);
+                    agent_objects_[agent_id] = object_id; // Привязываем объект к агенту
+                    std::cout << "object created:" << *object;
+                    handle_agent(new_connection, agent_id);
+                } else {
+                    std::cerr << "Error accepting agent: " << error.message() << std::endl;
+                }
+                start_agent_accept();
+            });
+    }
+
+    void start_player_accept()
+    {
+        auto new_connection = std::make_shared<tcp::socket>(player_acceptor_.get_executor());
+        player_acceptor_.async_accept(*new_connection,
+                                      [this,
+                                       new_connection](const boost::system::error_code &error) {
+                                          if (!error) {
+                                              std::cout << "Player connected: "
+                                                        << new_connection->remote_endpoint()
+                                                        << std::endl;
+                                              players_.push_back(new_connection);
+                                              handle_player(new_connection);
+                                          } else {
+                                              std::cerr
+                                                  << "Error accepting player: " << error.message()
+                                                  << std::endl;
+                                          }
+                                          start_player_accept();
+                                      });
+    }
+
+    void handle_agent(std::shared_ptr<tcp::socket> socket, uint64_t agent_id)
+    {
+        auto buffer = std::make_shared<boost::asio::streambuf>();
+        boost::asio::async_read_until(
+            *socket,
+            *buffer,
+            '\0', // Предполагается, что команды заканчиваются символом '\0'
+            [this, socket, buffer, agent_id](const boost::system::error_code &error,
+                                             std::size_t /*length*/) {
+                if (!error && socket->is_open()) {
+                    try {
+                        std::istream is(buffer.get());
+                        const std::vector<uint8_t> data((std::istreambuf_iterator<char>(is)),
+                                                        std::istreambuf_iterator<char>());
+
+                        uint64_t object_id = agent_objects_[agent_id];
+                        auto object = object_manager_.getObjectById(object_id);
+
+                        // Десериализуем команду
+                        auto command = Command::Deserialize(data.data(), object);
+
+                        // Добавляем команду в CommandManager
+                        command_manager_[agent_id].AddCommand(command);
+                        command_manager_[agent_id].ExecuteAll();
+
+                        // Отправляем состояние всех объектов игрокам
+                        broadcast_object_states();
+                    } catch (const std::exception &e) {
+                        std::cerr << "Error processing command for agent " << agent_id << ": "
+                                  << e.what() << std::endl;
+                    }
+
+                    // Продолжаем чтение следующих данных
+                    handle_agent(socket, agent_id);
+                } else {
+                    remove_agent(agent_id);
+                }
+            });
+    }
+
+    void broadcast_object_states()
+    {
+        // Формируем строку с состоянием всех объектов
+        std::string message = "Object States:\n";
+        for (const auto &[agent_id, object_id] : agent_objects_) {
+            std::shared_ptr<UObject> object = object_manager_.getObjectById(object_id);
+
+            message += "Agent ID: " + std::to_string(agent_id) + object->toString();
+        }
+
+        // Рассылаем сообщение всем игрокам
+        broadcast_to_players(message);
+    }
+
+    void handle_player(std::shared_ptr<tcp::socket> socket)
+    {
+        auto buffer = std::make_shared<boost::asio::streambuf>();
+        boost::asio::async_read_until(
+            *socket,
+            *buffer,
+            '\n',
+            [this, socket, buffer](const boost::system::error_code &error, std::size_t /*length*/) {
+                if (!error && socket->is_open()) {
+                    std::istream is(buffer.get());
+                    std::string message;
+                    std::getline(is, message);
+                    std::cout << "Received from player: " << message << std::endl;
+                    // Отправляем подтверждение игроку
+                    std::string response = "Command received: " + message;
+                    boost::asio::async_write(*socket,
+                                             boost::asio::buffer(response + "\n"),
+                                             [this, socket](const boost::system::error_code &error,
+                                                            std::size_t /*length*/) {
+                                                 if (error) {
+                                                     std::cerr
+                                                         << "Error sending response to player: "
+                                                         << error.message() << std::endl;
+                                                     remove_player(socket);
+                                                 }
+                                             });
+                    handle_player(socket);
+                } else {
+                    if (error) {
+                        std::cerr << "Error reading from player: " << error.message() << std::endl;
+                    }
+                    remove_player(socket);
+                }
+            });
+    }
+
+    void remove_agent(uint64_t agent_id)
+    {
+        auto it = agents_.find(agent_id);
+        if (it != agents_.end()) {
+            std::cout << "Agent disconnected: ID " << agent_id << std::endl;
+
+            // Удаляем объект, связанный с агентом
+            uint64_t object_id = agent_objects_[agent_id];
+            object_manager_.removeObject(object_id);
+
+            agents_.erase(it);
+            command_manager_.erase(agent_id); // Удаляем CommandManager для агента
+            agent_objects_.erase(agent_id);   // Удаляем привязку объекта к агенту
+        }
+    }
+    void remove_player(std::shared_ptr<tcp::socket> socket)
+    {
+        auto it = std::find(players_.begin(), players_.end(), socket);
+        if (it != players_.end()) {
+            std::cout << "Player disconnected: " << (*it)->remote_endpoint() << std::endl;
+            players_.erase(it);
+        }
+    }
+    std::vector<std::shared_ptr<tcp::socket>> players_;
+    tcp::acceptor agent_acceptor_;
+    tcp::acceptor player_acceptor_;
+    std::unordered_map<uint64_t, std::shared_ptr<tcp::socket>> agents_; // Агенты с их ID
+    std::unordered_map<uint64_t, CommandManager> command_manager_; // CommandManager для каждого агента
+    std::unordered_map<uint64_t, uint64_t> agent_objects_;         // Привязка объектов к агентам
+    ObjectManager object_manager_;                                 // Менеджер объектов
+    uint64_t
+        next_agent_id_; // Счётчик для генерации ID                                // Счётчик для генерации ID
+};
+
+
+// ==== ФАЙЛ: libraries/GameLogic/include/ServerLogic/PlayerFactory.hpp ====
+#pragma once
+#include "Player.hpp"
+#include <ECSEngineLib/World.hpp>
+
+#include <ECSEngineLib/Components/FuelComponent.hpp>
+#include <ECSEngineLib/Components/PositionComponent.hpp>
+#include <ECSEngineLib/Components/VelocityComponent.hpp>
+
+#include <InversionOfControl/InversionOfControl.h>
+
+class PlayerFactory : public BaseService {
+public:
+    virtual ~PlayerFactory() = default;
+    virtual std::shared_ptr<Player> CreatePlayer() = 0;
+};
+
+class DefaultPlayerFactory : public PlayerFactory {
+public:
+    explicit DefaultPlayerFactory(World& world) : world_(world) {}
+
+    std::shared_ptr<Player> CreatePlayer() override {
+      auto entity = world_.CreateEntity();
+
+      // Добавляем начальные компоненты
+      world_.AddComponent<PositionComponent>(entity,
+                                             std::array<double, 2>{0.0, 0.0});
+      world_.AddComponent<VelocityComponent>(entity,
+                                             std::array<double, 2>{0.0, 0.0});
+      world_.AddComponent<FuelComponent>(entity, 100.0);
+
+      return std::make_shared<Player>(entity, world_);
+    }
+
+private:
+    World& world_;
+};
+
+
+// ==== ФАЙЛ: libraries/GameLogic/include/ServerLogic/CommandExecutor.hpp ====
+#pragma once
+
+#include "ServerLogic/CommandService.hpp"
+#include <CommandLib/CommandQueue.hpp>
+#include <CommandLib/ICommand.hpp>
+#include <ServerLogic/Player.hpp>
+#include <functional>
+// #include <mutex>
+// #include <thread>
+
+class CommandExecutor : public CommandService {
+public:
+  using CommandWithContext =
+      std::pair<std::shared_ptr<ICommand>, std::shared_ptr<IObject>>;
+
+  explicit CommandExecutor(std::function<void()> updateCallback);
+  void EnqueueCommand(std::shared_ptr<ICommand> command,
+                      std::shared_ptr<IObject> context) override;
+  void StartProcessing() override;
+  void Stop();
+  ~CommandExecutor();
+
+  void WorkerLoop() override;
+
+private:
+
+  CommandQueue queue_;
+  // std::thread worker_;
+  bool stopped_ = false;
+  std::function<void()> updateCallback_;
+  // mutable std::mutex mtx_;
+};
+
+
+// ==== ФАЙЛ: libraries/GameLogic/include/ServerLogic/CommandService.hpp ====
+#pragma once
+#include <CommandLib/ICommand.hpp>
+#include <InversionOfControl/InversionOfControl.h>
+
+class CommandService : public BaseService {
+public:
+  virtual ~CommandService() = default;
+  virtual void EnqueueCommand(std::shared_ptr<ICommand> command,
+                              std::shared_ptr<IObject> context) = 0;
+  virtual void StartProcessing() = 0;
+
+  virtual void WorkerLoop() = 0;
+};
+
+
+// ==== ФАЙЛ: libraries/GameLogic/include/ServerLogic/Math/Vector.h ====
+#pragma once
+#include <array>
+#include <iostream>
+
+template<typename T, std::size_t N>
+class Vector
+{
+public:
+    // Конструктор по умолчанию
+    Vector() = default;
+
+    // Конструктор, принимающий список инициализации
+    Vector(std::initializer_list<T> values)
+    {
+        std::size_t i = 0;
+        for (const auto &value : values) {
+            if (i < N) {
+                data[i] = value;
+                ++i;
+            }
+        }
+    }
+
+    Vector<T, N> operator+(const Vector<T, N> &other) const
+    {
+        Vector<T, N> result;
+        for (std::size_t i = 0; i < N; ++i) {
+            result.data[i] = data[i] + other.data[i];
+        }
+        return result;
+    }
+
+    // Оператор доступа по индексу
+    T &operator[](std::size_t index) { return data[index]; }
+    const T &operator[](std::size_t index) const { return data[index]; }
+
+    // Скалярное произведение (dot)
+    T dot(const Vector &other) const
+    {
+        T result = 0;
+        for (std::size_t i = 0; i < N; ++i) {
+            result += data[i] * other.data[i];
+        }
+        return result;
+    }
+
+    // Векторное произведение (cross)
+    Vector cross(const Vector &other) const
+    {
+        static_assert(N == 3, "Cross product is only defined for 3D vectors");
+        return Vector({data[1] * other.data[2] - data[2] * other.data[1],
+                       data[2] * other.data[0] - data[0] * other.data[2],
+                       data[0] * other.data[1] - data[1] * other.data[0]});
+    }
+
+    // Перегрузка оператора вывода
+    friend std::ostream &operator<<(std::ostream &os, const Vector &vec)
+    {
+        os << "(";
+        for (std::size_t i = 0; i < N; ++i) {
+            os << vec.data[i];
+            if (i < N - 1)
+                os << ", ";
+        }
+        os << ")";
+        return os;
+    }
+
+    T &x() { return data[0]; }
+
+    const T &x() const { return data[0]; }
+
+    T &y() { return data[1]; }
+
+    const T &y() const { return data[1]; }
+
+    T &z() { return data[2]; }
+
+    const T &z() const { return data[2]; }
+
+private:
+    std::array<T, N> data{};
+};
+
+// Специализация для 2D вектора (векторное произведение возвращает скаляр)
+template<typename T>
+class Vector<T, 2>
+{
+public:
+    Vector() = default;
+
+    Vector(std::initializer_list<T> values)
+    {
+        std::size_t i = 0;
+        for (const auto &value : values) {
+            if (i < 2) {
+                data[i] = value;
+                ++i;
+            }
+        }
+    }
+
+    Vector<T, 2> operator+(const Vector<T, 2> &other) const
+    {
+        Vector<T, 2> result;
+        for (std::size_t i = 0; i < 2; ++i) {
+            result.data[i] = data[i] + other.data[i];
+        }
+        return result;
+    }
+
+    T &operator[](std::size_t index) { return data[index]; }
+    const T &operator[](std::size_t index) const { return data[index]; }
+
+    // Скалярное произведение (dot)
+    T dot(const Vector &other) const { return data[0] * other.data[0] + data[1] * other.data[1]; }
+
+    // Векторное произведение (cross) для 2D векторов
+    T cross(const Vector &other) const { return data[0] * other.data[1] - data[1] * other.data[0]; }
+
+    friend std::ostream &operator<<(std::ostream &os, const Vector &vec)
+    {
+        os << "(" << vec.data[0] << ", " << vec.data[1] << ")";
+        return os;
+    }
+
+    // Методы доступа к x и y (только для 2D векторов)
+    T &x() { return data[0]; }
+
+    const T &x() const { return data[0]; }
+
+    T &y() { return data[1]; }
+
+    const T &y() const { return data[1]; }
+
+private:
+    std::array<T, 2> data{};
+};
+
+
+// ==== ФАЙЛ: libraries/GameLogic/include/ServerLogic/Math/Angle.h ====
+#pragma once
+#include <cmath> // Для M_PI
+#include <iostream>
+
+class Angle
+{
+public:
+    // Конструктор по умолчанию
+    Angle()
+        : degrees_(0)
+    {}
+
+    // Конструктор с углом в градусах
+    explicit Angle(int degrees)
+        : degrees_(normalize(degrees))
+    {}
+
+    // Метод для получения угла в градусах
+    int getDegrees() const { return degrees_; }
+
+    // Метод для получения угла в радианах
+    double getRadians() const { return degrees_ * M_PI / 180.0; }
+
+    // Оператор сложения (возвращает новый объект)
+    Angle operator+(const Angle &other) const { return Angle(degrees_ + other.degrees_); }
+
+    // Оператор вычитания (возвращает новый объект)
+    Angle operator-(const Angle &other) const { return Angle(degrees_ - other.degrees_); }
+
+    // Вывод угла в поток
+    friend std::ostream &operator<<(std::ostream &os, const Angle &angle)
+    {
+        os << "(" << angle.degrees_ << " deg., " << angle.getRadians() << " rad.)";
+        return os;
+    }
+
+private:
+    int degrees_; // Угол в градусах
+
+    // Нормализация угла в диапазон [0, 360)
+    static int normalize(int degrees)
+    {
+        degrees %= 360; // Приводим к диапазону [-359, 359]
+        if (degrees < 0) {
+            degrees += 360; // Приводим к диапазону [0, 360)
+        }
+        return degrees;
+    }
+};
+
+
