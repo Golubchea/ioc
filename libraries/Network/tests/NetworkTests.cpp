@@ -1,11 +1,8 @@
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <network/NetworkFactory.hpp>
 #include <utils/conversionUtils.hpp>
-
 #include <chrono>
 #include <functional>
-#include <gtest/gtest.h>
 #include <memory>
 #include <network/INetworkServer.hpp>
 #include <network/ISession.hpp>
