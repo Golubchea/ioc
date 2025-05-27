@@ -151,7 +151,7 @@ jobs:
       run: |
         set(ENV{CC} ${{ matrix.config.cc }})
         set(ENV{CXX} ${{ matrix.config.cxx }})
-        execute_process(COMMAND sudo apt install -y llvm-18 llvm-18-tools llvm-18-dev clang-18-tools gcovr lcov clang-18 clang++-18)
+        execute_process(COMMAND sudo apt install -y llvm-18 llvm-18-tools llvm-18-dev gcovr lcov)
         if ("${{ runner.os }}" STREQUAL "Windows" AND NOT "x${{ matrix.config.environment_script }}" STREQUAL "x")
           execute_process(
             COMMAND "${{ matrix.config.environment_script }}" && set
